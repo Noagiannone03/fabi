@@ -1,0 +1,57 @@
+# Sous-repos clonés depuis upstream — ils ont leur propre gestion git
+# Ne pas tracker leur contenu depuis le méta-projet (c'est leur job).
+packages/void-swarm-cli/
+packages/swarm-engine/
+
+# Cependant on garde une trace : le README de packages/ indique quoi cloner.
+!packages/README.md
+
+# Builds & artefacts
+dist/
+build/
+out/
+*.tsbuildinfo
+.tsc-cache/
+
+# Dépendances
+node_modules/
+.pnpm-store/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Environnement
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+.swp
+.swo
+
+# Logs
+*.log
+logs/
+.opencode/log/
+.parallax/log/
+
+# Tests
+coverage/
+.nyc_output/
+
+# Données locales / caches LLM
+models/
+.cache/
+.huggingface/
