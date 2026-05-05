@@ -180,6 +180,26 @@ if [ ! -x "$INSTALL_ROOT/bin/fabi" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Relocalisation du venv Python bundlé
+# ---------------------------------------------------------------------------
+# Le tarball contient un venv Python pré-installé avec Parallax. Le venv
+# n'est pas relocatable par défaut (paths absolus de la machine de build),
+# release-build.sh a remplacé ces paths par le placeholder
+# __FABI_INSTALL_ROOT__ — on le remplace ici par le vrai INSTALL_ROOT.
+PLACEHOLDER="__FABI_INSTALL_ROOT__"
+if [ -d "$INSTALL_ROOT/runtime" ] && grep -rqI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null; then
+  log "Relocalisation du runtime Python…"
+  RELOC_COUNT=0
+  while IFS= read -r f; do
+    if command -v sed >/dev/null 2>&1; then
+      sed -i.bak "s|$PLACEHOLDER|$INSTALL_ROOT|g" "$f" && rm -f "$f.bak"
+      RELOC_COUNT=$((RELOC_COUNT + 1))
+    fi
+  done < <(grep -rlI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null || true)
+  ok "Runtime relocalisé dans $RELOC_COUNT fichiers"
+fi
+
+# ---------------------------------------------------------------------------
 # Symlink dans BIN_DIR
 # ---------------------------------------------------------------------------
 mkdir -p "$BIN_DIR"
