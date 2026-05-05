@@ -108,6 +108,10 @@ jobs:
       - name: Build tarball
         env:
           FABI_VERSION: ${{ github.ref_name }}
+          # GitHub Releases refuse les assets >2 GB. Le runtime CUDA complet
+          # dépasse cette limite, donc le tarball CUDA embarque seulement Fabi ;
+          # Parallax sera installé au premier lancement via l'installer interactif.
+          FABI_SKIP_PARALLAX: ${{ matrix.platform.accel == 'cuda' && '1' || '' }}
         run: |
           chmod +x scripts/release-build.sh
           ./scripts/release-build.sh \
