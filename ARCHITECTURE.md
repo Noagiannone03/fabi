@@ -1,10 +1,10 @@
-# Architecture Void-Swarm
+# Architecture Fabi
 
 ## Vue d'ensemble
 
-Void-Swarm = (fork OpenCode pour l'agent) + (fork Parallax pour le swarm) + (code d'intégration).
+Fabi = (fork OpenCode pour l'agent) + (fork Parallax pour le swarm) + (code d'intégration).
 
-Le binaire final que l'utilisateur lance est `void-swarm`. Il :
+Le binaire final que l'utilisateur lance est `fabi`. Il :
 
 1. **Démarre le serveur agentique** (logique OpenCode rebadgée)
 2. **Spawn le worker Parallax** en sous-process — l'utilisateur rejoint le swarm
@@ -20,7 +20,7 @@ Cycle de vie : strictement aligné sur l'usage. Pas de daemon caché, pas de con
                       MACHINE DE L'UTILISATEUR
    ┌────────────────────────────────────────────────────────────────────┐
    │                                                                    │
-   │   Process: void-swarm                                              │
+   │   Process: fabi                                              │
    │   ┌─────────────────────────────────────────────────────────────┐  │
    │   │  Serveur agentique (fork OpenCode)                          │  │
    │   │  - boot()                                                    │  │
@@ -67,31 +67,31 @@ Cycle de vie : strictement aligné sur l'usage. Pas de daemon caché, pas de con
 
 ## Flux d'une requête utilisateur
 
-1. Utilisateur tape une question dans la TUI Void-Swarm
+1. Utilisateur tape une question dans la TUI Fabi
 2. TUI fait un POST `/v1/chat/completions` sur son serveur local `:7777`
 3. Le serveur agentique applique son tool use, ses prompts système, etc.
-4. Le serveur fait un appel HTTP à `https://swarm.aircarto.fr/v1/chat/completions` (le scheduler Aircarto)
+4. Le serveur fait un appel HTTP à `https://fabi.aircarto.fr/v1/chat/completions` (le scheduler Aircarto)
 5. Le scheduler choisit un chemin de peers (pipeline) qui héberge les couches du modèle
 6. Le forward pass passe de peer en peer, le token sort, retour au scheduler
-7. Le scheduler renvoie au serveur void-swarm local
+7. Le scheduler renvoie au serveur fabi local
 8. Le serveur stream la réponse à la TUI
 
 ## Cycle de vie
 
 | Évent | Action |
 |---|---|
-| User lance `void-swarm` | Boot serveur → spawn Parallax → join swarm → TUI prête |
+| User lance `fabi` | Boot serveur → spawn Parallax → join swarm → TUI prête |
 | User tape une commande | Requête routée via scheduler Aircarto |
 | User Ctrl+C / ferme la TUI | Serveur reçoit SIGTERM → kill Parallax proprement → exit |
 | Crash du serveur | Le sous-process Parallax meurt aussi (process group) |
-| Ext VSCode démarre | Lance `void-swarm` en process enfant → même cycle |
+| Ext VSCode démarre | Lance `fabi` en process enfant → même cycle |
 
 ## Choix d'architecture (et leurs raisons)
 
 | Choix | Pourquoi |
 |---|---|
 | Forks séparés (multi-repo) plutôt que monorepo subtree | Sync upstream simple via `git fetch upstream` natif. Standard Cursor/Windsurf. |
-| Parallax en sous-process plutôt qu'en lib | Parallax est Python, void-swarm est TS/Bun. Process séparé = découpage propre. |
+| Parallax en sous-process plutôt qu'en lib | Parallax est Python, fabi est TS/Bun. Process séparé = découpage propre. |
 | Scheduler centralisé Aircarto plutôt que pur P2P public | Contrôle, observabilité, pas de free-riders dès le début. Évolution possible. |
 | OpenAI-compatible endpoint | Parallax l'expose nativement, OpenCode le supporte nativement, zéro glue à écrire. |
 | Sync upstream cherry-pick | Souveraineté + bug fixes upstream. Standard fork pro. |

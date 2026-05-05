@@ -1,11 +1,11 @@
-# Roadmap Void-Swarm
+# Roadmap Fabi
 
 ## Phase 0 — Setup (en cours)
 
 - [x] Choix de la stratégie de fork (cherry-pick style Cursor)
 - [x] Création du méta-projet
 - [x] Clones initiaux d'OpenCode et Parallax avec remotes upstream configurés
-- [ ] Premier `void-swarm --version` qui boot OpenCode rebadgé sans Parallax encore
+- [ ] Premier `fabi --version` qui boot OpenCode rebadgé sans Parallax encore
 
 ## Phase 1 — Validation technique (semaines 1-2)
 
@@ -19,32 +19,45 @@
 
 ## Phase 2 — Intégration auto (semaines 2-4)
 
-> Objectif : `void-swarm` (binaire forké rebadgé) lance Parallax automatiquement et rejoint le swarm.
+> Objectif : `fabi` (binaire forké rebadgé) lance Parallax automatiquement et rejoint le swarm.
 
-- [ ] Implémenter `integration/parallax-supervisor` : spawn `parallax join -s <scheduler>` au boot
-- [ ] Modifier le boot du serveur OpenCode forké pour appeler le supervisor
-- [ ] Gérer la mort propre : SIGTERM → kill Parallax → exit
-- [ ] Tests : kill -9 le parent, vérifier que Parallax meurt aussi (process group)
-- [ ] Pré-baker `opencode.json` avec le provider Void-Swarm comme défaut
+- [x] ~~Implémenter `integration/fabi-launcher` (launcher externe)~~ — abandonné au profit de l'intégration **native** dans le fork (cf. [ADR 002](./docs/decisions/002-pivot-fork-actif.md))
+- [x] Module `packages/opencode/src/swarm/` créé (defaults, scheduler healthcheck, worker spawn/stop, provider-defaults, lifecycle)
+- [x] Branchement boot dans `src/index.ts` : middleware swarm conditionnel sur la commande lancée (TUI default, run, serve)
+- [x] Gérer la mort propre : SIGINT/SIGTERM/SIGHUP → kill worker (process group) ; filet sync `process.on("exit")` pour le cas `process.exit()` direct
+- [ ] Tester sur poste réel : kill -9 le parent, vérifier que Parallax meurt aussi (process group)
+- [ ] Smoke test bout-en-bout : poste local lance fabi → join scheduler local → CLI répond avec le swarm
+- [x] Provider Fabi pré-baké directement dans la config par défaut (zéro env var requise) ; surchargeable par config user
 
 ## Phase 3 — Rebrand (semaine 4-6)
 
 > Objectif : zéro mention "opencode" visible à l'utilisateur final.
 
-- [ ] Renommer le binaire `opencode` → `void-swarm` (package.json `bin`)
-- [ ] ASCII art VOID-SWARM dans le banner
-- [ ] Strings UI : "OpenCode" → "Void-Swarm" dans TUI/banner/footer
-- [ ] Thème par défaut : `void-swarm.json`
+- [x] Binaire exposé comme `fabi` (alias dans `packages/opencode/package.json`, à côté de `opencode` pour compat)
+- [x] ASCII art FABI dans le logo (wordmark depuis `branding/ascii-banner.txt`, couleur sunset `#FF8C42`)
+- [x] `scriptName("fabi")` yargs + env vars `FABI` / `FABI_PID`
+- [x] `name: "fabi"` dans `package.json` racine du fork
+- [ ] Strings UI résiduelles : "opencode" / "OpenCode" dans la TUI/messages → audit + remplacements ciblés
+- [ ] Thème par défaut : utiliser `branding/theme-fabi.json` (intégrer dans la config par défaut comme on a fait pour le provider)
 - [ ] Welcome screen au premier run
 - [ ] Footer discret "based on opencode" (politesse + obligation MIT)
 
 ## Phase 4 — Distribution (semaine 6-8)
 
-- [ ] CI/CD GitHub Actions pour build multi-OS (Linux, macOS Intel, macOS ARM, Windows)
-- [ ] Publication npm `@aircarto/void-swarm`
-- [ ] Publication VSCode Marketplace + Open VSX
-- [ ] Page de download `voidswarm.io` (ou sous-domaine Aircarto)
-- [ ] Bundling Parallax binary (téléchargement au premier run)
+> Stratégie : `curl -fsSL https://fabi.aircarto.fr/install.sh | bash`
+> (pattern Ollama / Bun / Pulumi / Claude Code, **pas npm** — on bundle Python+Parallax,
+> trop lourd pour npm). Détails dans [docs/distribution.md](./docs/distribution.md).
+
+- [x] `scripts/release-build.sh` — produit un tarball `fabi-<os>-<arch>-<accel>.tar.zst`
+      contenant binaire fabi + Python standalone + venv Parallax (PyTorch + vLLM/MLX selon `--accel`)
+- [x] `.github/workflows/release.yml` — workflow CI matrix (5 runners) qui build sur tag `v*`
+- [x] `install.sh` (Linux/macOS) + `install.ps1` (Windows) — installer côté user
+- [ ] **Tester en local** le pipeline complet (lancer `release-build.sh` avec FABI_SKIP_PARALLAX=1)
+- [ ] **Créer le repo public** `github.com/aircarto/fabi` et push le code
+- [ ] **Premier release** : `git tag v0.1.0 && git push --tags` → vérifier les 5 tarballs sur GitHub Releases
+- [ ] **Configurer le domaine** `fabi.aircarto.fr` (DNS + serveur web qui sert install.sh)
+- [ ] Page de présentation `fabi.aircarto.fr` avec one-liner d'install
+- [ ] (Plus tard) Publication VSCode Marketplace + Open VSX
 
 ## Phase 5 — Premiers users (mois 2)
 

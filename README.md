@@ -1,4 +1,4 @@
-# Void-Swarm
+# Fabi
 
 > Un IDE / CLI agentique open source qui rejoint automatiquement un swarm P2P d'inférence LLM.
 > Tu codes → tu contribues une part de ton GPU → tu utilises gratuitement un gros modèle distribué entre tous les peers.
@@ -7,7 +7,7 @@
 
 ## Pitch
 
-| | Cursor / Copilot | Void-Swarm |
+| | Cursor / Copilot | Fabi |
 |---|---|---|
 | Coût mensuel | 20-100 € | **0 €** (en échange du partage GPU pendant que tu codes) |
 | Modèles | propriétaires fermés | Qwen Coder, DeepSeek, Llama 3.x, Kimi-K2, etc. |
@@ -25,7 +25,7 @@ Cible : étudiants, devs solo, hobbyists, écoles, labos, PME — gens pour qui 
        Utilisateur final
               │
        ┌──────┴──────┐
-       │   void-swarm CLI / TUI    │  ← fork de sst/opencode
+       │   fabi CLI / TUI    │  ← fork de sst/opencode
        │   ou ext VSCode           │     (rebrand, intégration Parallax)
        └──────┬──────┬─────────────┘
               │      │
@@ -54,7 +54,7 @@ Cible : étudiants, devs solo, hobbyists, écoles, labos, PME — gens pour qui 
    (autres users actifs en train de coder)
 ```
 
-Le serveur `void-swarm` (= fork OpenCode) lance Parallax en sous-process au démarrage. L'utilisateur rejoint donc le swarm dès qu'il ouvre le CLI/IDE, et le quitte quand il ferme. L'inférence pour ses propres requêtes se fait via le scheduler central Aircarto qui route à travers le swarm.
+Le serveur `fabi` (= fork OpenCode) lance Parallax en sous-process au démarrage. L'utilisateur rejoint donc le swarm dès qu'il ouvre le CLI/IDE, et le quitte quand il ferme. L'inférence pour ses propres requêtes se fait via le scheduler central Aircarto qui route à travers le swarm.
 
 ---
 
@@ -62,7 +62,7 @@ Le serveur `void-swarm` (= fork OpenCode) lance Parallax en sous-process au dém
 
 | Composant | Rôle | Origine | Localisation |
 |---|---|---|---|
-| **void-swarm-cli** | Agent agentique : CLI, TUI, ext VSCode, desktop | fork de [sst/opencode](https://github.com/sst/opencode) (MIT) | `packages/void-swarm-cli/` |
+| **fabi-cli** | Agent agentique : CLI, TUI, ext VSCode, desktop | fork de [sst/opencode](https://github.com/sst/opencode) (MIT) | `packages/fabi-cli/` |
 | **swarm-engine** | Inférence distribuée P2P | fork de [GradientHQ/parallax](https://github.com/GradientHQ/parallax) (Apache 2.0) | `packages/swarm-engine/` |
 | **integration** | Code de glue : supervisor Parallax, config scheduler | écrit par nous | `integration/` |
 | **scheduler** (futur) | Orchestrateur public Aircarto | écrit par nous | hors monorepo (déployé serveur5 Aircarto) |
@@ -79,8 +79,8 @@ Le serveur `void-swarm` (= fork OpenCode) lance Parallax en sous-process au dém
 
 ```bash
 # 1. Cloner ce méta-projet
-git clone <ton-fork-meta> void-swarm
-cd void-swarm
+git clone <ton-fork-meta> fabi
+cd fabi
 
 # 2. Récupérer les upstreams (clones de OpenCode et Parallax)
 ./scripts/setup.sh
@@ -95,7 +95,7 @@ cat docs/development.md
 
 **On ne réécrit pas, on cherry-pick comme Cursor sur VSCode.**
 
-- Chaque sous-package (`packages/void-swarm-cli`, `packages/swarm-engine`) est un git repo distinct cloné depuis upstream
+- Chaque sous-package (`packages/fabi-cli`, `packages/swarm-engine`) est un git repo distinct cloné depuis upstream
 - Chacun a un remote `upstream` qui pointe sur le repo original
 - Sync mensuelle : `./scripts/sync-upstream.sh` (cherry-pick / merge à la demande)
 - Toutes nos modifs sont documentées dans [DIVERGENCE.md](./DIVERGENCE.md)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# setup.sh — clone les upstreams Void-Swarm et configure les remotes.
+# setup.sh — clone les upstreams Fabi et configure les remotes.
 #
 # Idempotent : peut être relancé sans casser un setup existant.
 #
@@ -20,10 +20,10 @@ else
   C_BLUE=""; C_GREEN=""; C_YELLOW=""; C_RED=""; C_RESET=""
 fi
 
-log()    { printf "%s[void-swarm setup]%s %s\n" "$C_BLUE" "$C_RESET" "$1"; }
-warn()   { printf "%s[void-swarm setup]%s %s\n" "$C_YELLOW" "$C_RESET" "$1" >&2; }
-err()    { printf "%s[void-swarm setup]%s %s\n" "$C_RED" "$C_RESET" "$1" >&2; }
-ok()     { printf "%s[void-swarm setup]%s %s\n" "$C_GREEN" "$C_RESET" "$1"; }
+log()    { printf "%s[fabi setup]%s %s\n" "$C_BLUE" "$C_RESET" "$1"; }
+warn()   { printf "%s[fabi setup]%s %s\n" "$C_YELLOW" "$C_RESET" "$1" >&2; }
+err()    { printf "%s[fabi setup]%s %s\n" "$C_RED" "$C_RESET" "$1" >&2; }
+ok()     { printf "%s[fabi setup]%s %s\n" "$C_GREEN" "$C_RESET" "$1"; }
 
 # Racine du projet (le script vit dans scripts/, on remonte d'un cran)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,7 +50,7 @@ mkdir -p "$PACKAGES_DIR"
 # Helper : clone un upstream et configure les remotes proprement
 # ----------------------------------------------------------------------------
 # Args:
-#   $1 : nom du sous-dossier (ex: "void-swarm-cli")
+#   $1 : nom du sous-dossier (ex: "fabi-cli")
 #   $2 : URL upstream
 #   $3 : URL de notre fork (peut être vide)
 clone_or_setup() {
@@ -59,11 +59,16 @@ clone_or_setup() {
   local fork_url="$3"
   local target="$PACKAGES_DIR/$subdir"
 
+  # Source du clone : si le fork user est fourni → on clone depuis le fork
+  # (= contient nos modifs Fabi). Sinon → clone d'upstream (cas du dev qui
+  # n'a pas encore créé son fork GitHub).
+  local clone_url="${fork_url:-$upstream_url}"
+
   if [[ -d "$target/.git" ]]; then
     log "$subdir : repo déjà présent, on configure juste les remotes."
   else
-    log "$subdir : clonage depuis $upstream_url …"
-    git clone "$upstream_url" "$target"
+    log "$subdir : clonage depuis $clone_url …"
+    git clone "$clone_url" "$target"
     ok  "$subdir : clone terminé."
   fi
 
@@ -114,7 +119,7 @@ log "Racine projet : $PROJECT_ROOT"
 log "Cible packages : $PACKAGES_DIR"
 echo
 
-clone_or_setup "void-swarm-cli" "$OPENCODE_UPSTREAM" "$OPENCODE_FORK_REMOTE"
+clone_or_setup "fabi-cli" "$OPENCODE_UPSTREAM" "$OPENCODE_FORK_REMOTE"
 echo
 clone_or_setup "swarm-engine"   "$PARALLAX_UPSTREAM" "$PARALLAX_FORK_REMOTE"
 echo
@@ -125,8 +130,8 @@ echo
 ok "Setup terminé."
 echo
 echo "Prochaines étapes suggérées :"
-echo "  1. Crée tes forks sur GitHub (ex: github.com/aircarto/void-swarm-cli)"
+echo "  1. Crée tes forks sur GitHub (ex: github.com/aircarto/fabi-cli)"
 echo "  2. Ajoute origin :"
-echo "       git -C packages/void-swarm-cli remote add origin <url-fork>"
+echo "       git -C packages/fabi-cli remote add origin <url-fork>"
 echo "       git -C packages/swarm-engine   remote add origin <url-fork>"
 echo "  3. Lis docs/development.md pour démarrer le dev."

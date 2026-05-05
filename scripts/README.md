@@ -1,6 +1,6 @@
 # scripts/
 
-Scripts d'orchestration du méta-projet Void-Swarm.
+Scripts d'orchestration du méta-projet Fabi.
 
 | Script | Rôle | Quand l'utiliser |
 |---|---|---|

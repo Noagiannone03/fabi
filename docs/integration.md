@@ -1,4 +1,4 @@
-# Intégration void-swarm-cli ↔ swarm-engine
+# Intégration fabi-cli ↔ swarm-engine
 
 Comment le CLI agentique et le moteur d'inférence sont câblés ensemble.
 
@@ -6,12 +6,12 @@ Comment le CLI agentique et le moteur d'inférence sont câblés ensemble.
 
 ```
                    ┌──────────────────────────────────┐
-                   │  Utilisateur tape `void-swarm`   │
+                   │  Utilisateur tape `fabi`   │
                    └────────────────┬─────────────────┘
                                     │
                                     ▼
    ┌─────────────────────────────────────────────────────────┐
-   │  Process #1 : void-swarm (Bun/TS, ex-OpenCode)          │
+   │  Process #1 : fabi (Bun/TS, ex-OpenCode)          │
    │                                                         │
    │  boot()                                                 │
    │   ├─► resolveSchedulerConfig()  ← integration/...       │
@@ -43,7 +43,7 @@ Comment le CLI agentique et le moteur d'inférence sont câblés ensemble.
 
 ### 1. Au boot du serveur OpenCode forké
 
-Trouver le point d'entrée du serveur OpenCode (dans `packages/void-swarm-cli/`,
+Trouver le point d'entrée du serveur OpenCode (dans `packages/fabi-cli/`,
 probablement quelque chose comme `packages/opencode/src/server/serve.ts` ou
 `packages/opencode/src/cli/index.ts` — à confirmer en explorant le repo).
 
@@ -71,39 +71,39 @@ process.on("SIGINT", async () => {
 })
 ```
 
-### 2. Provider OpenAI-compatible "Void-Swarm"
+### 2. Provider OpenAI-compatible "Fabi"
 
 Plutôt que modifier le code source, **on précharge un fichier `opencode.json`** au
-premier lancement de void-swarm dans `~/.config/opencode/` (ou équivalent) :
+premier lancement de fabi dans `~/.config/opencode/` (ou équivalent) :
 
 ```json
 {
   "provider": {
-    "void-swarm": {
+    "fabi": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Void-Swarm Network",
+      "name": "Fabi Network",
       "options": {
-        "baseURL": "https://swarm.aircarto.fr/v1"
+        "baseURL": "https://fabi.aircarto.fr/v1"
       },
       "models": {
         "qwen-coder-32b": { "name": "Qwen Coder 32B (Aircarto)" }
       }
     }
   },
-  "defaultProvider": "void-swarm",
+  "defaultProvider": "fabi",
   "defaultModel":    "qwen-coder-32b",
-  "theme":           "void-swarm"
+  "theme":           "fabi"
 }
 ```
 
 Cette config :
 - Pointe sur notre scheduler Aircarto
 - Définit le provider par défaut
-- Active notre thème `void-swarm` (préinstallé via le branding/)
+- Active notre thème `fabi` (préinstallé via le branding/)
 
 ### 3. Process group pour kill propre
 
-Sur Unix, on lance Parallax dans un nouveau process group. Comme ça, si void-swarm crashe
+Sur Unix, on lance Parallax dans un nouveau process group. Comme ça, si fabi crashe
 violemment (`kill -9`), le worker Parallax meurt aussi via la propagation de SIGHUP
 au process group.
 
@@ -121,17 +121,17 @@ const child = spawn("parallax", ["join", "-s", scheduler], {
 
 Avant de spawn Parallax, on ping le scheduler pour vérifier qu'il est joignable.
 Si scheduler down :
-- Mode dégradé : void-swarm démarre quand même mais affiche un warning
+- Mode dégradé : fabi démarre quand même mais affiche un warning
 - Le user peut quand même utiliser le CLI avec un autre provider (OpenAI direct, Ollama)
-- Logué dans `~/.local/share/void-swarm/log/` pour debug
+- Logué dans `~/.local/share/fabi/log/` pour debug
 
 ### 5. Communication TUI → user
 
 Quand le worker Parallax se connecte au swarm, on émet un event que la TUI affiche :
 
 ```
-✓ Void-Swarm connecté
-  ├─ scheduler : swarm.aircarto.fr (47ms)
+✓ Fabi connecté
+  ├─ scheduler : fabi.aircarto.fr (47ms)
   ├─ peers     : 12 actifs
   ├─ modèle    : Qwen Coder 32B
   └─ ta contribution : 12 GB VRAM, layers 24-31
@@ -147,7 +147,7 @@ Phase 1 / 2 : on suppose que `parallax` est dans le PATH (installé via `pip ins
 dans `packages/swarm-engine`).
 
 Phase 4 (distribution) : il faudra **bundler le binaire Parallax** dans l'installeur
-Void-Swarm pour que l'utilisateur n'ait pas besoin de Python. Options :
+Fabi pour que l'utilisateur n'ait pas besoin de Python. Options :
 - `pyinstaller` ou `nuitka` pour figer Parallax en binaire
 - Téléchargement au premier run depuis nos serveurs Aircarto
 - À décider en ADR dédiée plus tard.

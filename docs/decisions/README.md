@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-Décisions techniques importantes prises pour Void-Swarm, archivées par numéro.
+Décisions techniques importantes prises pour Fabi, archivées par numéro.
 
 Format : on n'écrit pas un ADR pour chaque décision triviale. On en écrit pour les
 choix qui :
@@ -12,7 +12,8 @@ choix qui :
 
 | # | Titre | Date | Statut |
 |---|---|---|---|
-| [001](./001-fork-strategy.md) | Stratégie de fork pour OpenCode et Parallax | 2026-05-04 | accepté |
+| [001](./001-fork-strategy.md) | Stratégie de fork pour OpenCode et Parallax | 2026-05-04 | accepté (modalités révisées par ADR 002) |
+| [002](./002-pivot-fork-actif.md) | Pivot vers fork actif et appropriation du code OpenCode | 2026-05-05 | accepté |
 
 ## Convention
 

@@ -1,8 +1,8 @@
 # branding/
 
-Assets visuels de marque Void-Swarm. Réutilisés par :
+Assets visuels de marque Fabi. Réutilisés par :
 
-- `packages/void-swarm-cli/` (banner TUI, thème par défaut)
+- `packages/fabi-cli/` (banner TUI, thème par défaut)
 - L'installeur (futur)
 - La landing page `voidswarm.io` (futur)
 
@@ -11,7 +11,7 @@ Assets visuels de marque Void-Swarm. Réutilisés par :
 | Fichier | Usage |
 |---|---|
 | `ascii-banner.txt` | Banner ASCII affiché au boot du CLI/TUI |
-| `theme-void-swarm.json` | Thème de couleurs au format OpenCode |
+| `theme-fabi.json` | Thème de couleurs au format OpenCode |
 | `theme-preview.md` | Aperçu visuel du thème (mémo des choix) |
 
 ## Convention
@@ -27,8 +27,8 @@ Pour utiliser le thème dans OpenCode forké :
 
 ```bash
 mkdir -p ~/.config/opencode/themes
-cp branding/theme-void-swarm.json ~/.config/opencode/themes/
-echo '{"theme": "void-swarm"}' > ~/.config/opencode/config.json
+cp branding/theme-fabi.json ~/.config/opencode/themes/
+echo '{"theme": "fabi"}' > ~/.config/opencode/config.json
 ```
 
 (à automatiser plus tard via un postinstall script.)
