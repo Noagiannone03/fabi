@@ -23,7 +23,8 @@
 # Variables d'env optionnelles :
 #   FABI_VERSION       version qui sera affichée et embarquée (défaut: lit VERSION ou v0.0.0-dev)
 #   PYTHON_BUILD_TAG   release tag de python-build-standalone (défaut: 20241016)
-#   PARALLAX_SOURCE    spec pip pour parallax (défaut: -e ../packages/swarm-engine)
+#   PARALLAX_SOURCE    path local ou spec pip pour parallax (défaut: ../packages/swarm-engine)
+#   PARALLAX_EXTRA     extra pip forcé pour parallax (défaut: auto selon accel)
 #   FABI_SKIP_PARALLAX  si "1", skip le venv parallax (utile pour test build fabi seul)
 
 set -euo pipefail
@@ -188,12 +189,50 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   esac
 
   PARALLAX_SPEC="${PARALLAX_SOURCE:-$SWARM_ENGINE_DIR}"
-  if [ -d "$PARALLAX_SPEC" ]; then
-    "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" -e "$PARALLAX_SPEC"
-  else
-    "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" "$PARALLAX_SPEC"
+  PARALLAX_EXTRA="${PARALLAX_EXTRA:-}"
+  if [ -z "$PARALLAX_EXTRA" ]; then
+    case "$ACCEL" in
+      mlx)
+        PARALLAX_EXTRA="mac"
+        ;;
+      cuda)
+        PARALLAX_EXTRA="gpu"
+        ;;
+      rocm)
+        PARALLAX_EXTRA="vllm"
+        ;;
+      cpu)
+        PARALLAX_EXTRA=""
+        ;;
+    esac
   fi
+
+  PARALLAX_INSTALL_SPEC="$PARALLAX_SPEC"
+  if [ -n "$PARALLAX_EXTRA" ]; then
+    PARALLAX_INSTALL_SPEC="${PARALLAX_SPEC}[${PARALLAX_EXTRA}]"
+  fi
+
+  if [ -d "$PARALLAX_SPEC" ]; then
+    "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" -e "$PARALLAX_INSTALL_SPEC"
+  else
+    "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" "$PARALLAX_INSTALL_SPEC"
+  fi
+  "$VENV_PIP" install --quiet requests
   ok  "Parallax installé"
+
+  # Rendre les symlinks Python du venv relocatables.
+  #
+  # `python -m venv` crée sur macOS/Linux :
+  #   runtime/parallax-venv/bin/python3 -> /abs/path/runtime/python-base/bin/python3
+  # Les shebangs des entrypoints pointent ensuite vers parallax-venv/bin/python3.
+  # Si on ne remplace pas ce symlink absolu, le tarball fonctionne sur la VM de
+  # build mais casse chez l'utilisateur.
+  if [[ "$PBS_ARCH" != *windows* ]]; then
+    VENV_BIN="$PKG_DIR/runtime/parallax-venv/bin"
+    ln -sf "../../python-base/bin/python3" "$VENV_BIN/python3"
+    ln -sf "python3" "$VENV_BIN/python"
+    ln -sf "python3" "$VENV_BIN/python3.11"
+  fi
 
   # Vérification : le binaire parallax doit exister dans le venv
   PARALLAX_BIN="$PKG_DIR/runtime/parallax-venv/bin/parallax"
@@ -203,6 +242,28 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     err "Le binaire parallax est absent après pip install : $PARALLAX_BIN"
     exit 1
   fi
+
+  # 3.5 Neutralisation des paths absolus dans le venv
+  # ----------------------------------------------------------------------------
+  # Un venv Python n'est PAS relocatable par défaut : les shebangs et pyvenv.cfg
+  # contiennent le path absolu de la machine de build (ici la VM GitHub Actions,
+  # /Users/runner/...). Sans ce traitement, le venv ne marche pas chez l'user.
+  #
+  # On remplace $PKG_DIR par un placeholder __FABI_INSTALL_ROOT__ qui sera
+  # remplacé par le vrai install root par install.sh à l'extraction.
+  PLACEHOLDER="__FABI_INSTALL_ROOT__"
+  log "(3.5/4) Neutralisation des paths absolus du venv (relocatable)…"
+
+  # On cible uniquement les fichiers texte du venv (pyvenv.cfg, scripts pip/parallax,
+  # fichiers .py qui peuvent contenir des paths hardcodés, RECORD du dist-info)
+  # On utilise grep -lI pour skipper les binaires (et éviter de corrompre les .so)
+  PATCHED_COUNT=0
+  while IFS= read -r f; do
+    # macOS sed exige un suffix pour -i, Linux non — on utilise une syntaxe compatible
+    sed -i.bak "s|$PKG_DIR|$PLACEHOLDER|g" "$f" && rm -f "$f.bak"
+    PATCHED_COUNT=$((PATCHED_COUNT + 1))
+  done < <(grep -rlI "$PKG_DIR" "$PKG_DIR/runtime" 2>/dev/null || true)
+  ok  "Paths neutralisés dans $PATCHED_COUNT fichiers du venv"
 else
   log "(2-3/4) FABI_SKIP_PARALLAX=1 — runtime Parallax non bundlé"
 fi
