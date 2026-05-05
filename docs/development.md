@@ -104,7 +104,7 @@ Lis [docs/upstream-sync-workflow.md](./upstream-sync-workflow.md) pour les déta
 ## Tester la chaîne complète (fin de phase 2)
 
 ```bash
-# Terminal 1 : scheduler Aircarto en local (à mettre en place)
+# Terminal 1 : scheduler Fabi en local (à mettre en place)
 cd packages/swarm-engine
 parallax run -m qwen-coder-32b -n 1   # mode tout-en-un local
 

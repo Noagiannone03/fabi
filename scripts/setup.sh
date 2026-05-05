@@ -130,7 +130,7 @@ echo
 ok "Setup terminé."
 echo
 echo "Prochaines étapes suggérées :"
-echo "  1. Crée tes forks sur GitHub (ex: github.com/aircarto/fabi-cli)"
+echo "  1. Crée tes forks sur GitHub (ex: github.com/Noagiannone03/fabi-cli)"
 echo "  2. Ajoute origin :"
 echo "       git -C packages/fabi-cli remote add origin <url-fork>"
 echo "       git -C packages/swarm-engine   remote add origin <url-fork>"

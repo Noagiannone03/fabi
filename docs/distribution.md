@@ -50,8 +50,8 @@ uploadent leur tarball sur la GitHub Release du tag.
 
 ### 3. `install.sh` (Linux + macOS)
 
-Script bash de ~150 lignes hébergé à `https://fabi.aircarto.fr/install.sh`
-(ou `https://raw.githubusercontent.com/aircarto/fabi/main/install.sh` en
+Script bash de ~150 lignes hébergé à `https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh`
+(ou `https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh` en
 fallback). Fait :
 
 1. Détecte OS + arch + accel (CUDA/MLX/CPU) automatiquement
@@ -71,9 +71,9 @@ Pendant PowerShell de `install.sh`. Place dans `%LOCALAPPDATA%\fabi\`.
 ### Côté mainteneur (toi)
 
 ```bash
-# 1. Crée le repo public sur GitHub : github.com/aircarto/fabi
+# 1. Crée le repo public sur GitHub : github.com/Noagiannone03/fabi
 # 2. Push le code
-git remote add origin https://github.com/aircarto/fabi.git
+git remote add origin https://github.com/Noagiannone03/fabi.git
 git push -u origin main
 
 # 3. Tag et push
@@ -83,7 +83,7 @@ git tag v0.1.0
 git push --tags
 
 # 4. Attends 30 min (5 runners en parallèle, le plus long c'est le pip install Parallax)
-# 5. Vérifie github.com/aircarto/fabi/releases/v0.1.0 → 5 tarballs + SHA256
+# 5. Vérifie github.com/Noagiannone03/fabi/releases/v0.1.0 → 5 tarballs + SHA256
 # 6. install.sh / install.ps1 sont attachés automatiquement par le job publish-installer
 ```
 
@@ -91,13 +91,13 @@ git push --tags
 
 ```bash
 # Linux / macOS
-curl -fsSL https://fabi.aircarto.fr/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
 
 # Ou direct depuis GitHub si pas de domaine custom
-curl -fsSL https://raw.githubusercontent.com/aircarto/fabi/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
 
 # Windows
-irm https://fabi.aircarto.fr/install.ps1 | iex
+irm https://github.com/Noagiannone03/fabi/releases/latest/download/install.ps1 | iex
 ```
 
 Après ça : `fabi` est dans son PATH, `fabi` lance le binaire qui spawn
@@ -120,24 +120,24 @@ Total à uploader par release : **~3.5 GB**. GitHub Releases accepte (limite
 
 Trois options, par préférence :
 
-### Option A — Sous-domaine custom `fabi.aircarto.fr` (recommandé)
+### Option A — Sous-domaine custom `github.com/Noagiannone03/fabi` (recommandé)
 
-Tu sers `install.sh` depuis ton DNS Aircarto. Avantage : URL belle et
+Tu sers `install.sh` depuis ton DNS Fabi. Avantage : URL belle et
 mémorable. Faut juste un Nginx ou un static site qui sert le fichier en
-HTTPS. **Le domaine `aircarto.fr` t'appartient déjà**, donc juste un sous-domaine.
+HTTPS. **Le domaine `GitHub` t'appartient déjà**, donc juste un sous-domaine.
 
 ### Option B — `raw.githubusercontent.com` (zéro config)
 
-`https://raw.githubusercontent.com/aircarto/fabi/main/install.sh` marche
+`https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh` marche
 direct dès que le repo est public. Moins joli mais zéro effort.
 
 ### Option C — GitHub Pages
 
-`https://aircarto.github.io/fabi/install.sh` — gratuit, joli URL, géré
+`https://Noagiannone03.github.io/fabi/install.sh` — gratuit, joli URL, géré
 automatiquement par GitHub. Active `Pages` dans les settings du repo.
 
 Le workflow `release.yml` attache également `install.sh` à chaque GitHub
-Release, donc il est aussi accessible à `https://github.com/aircarto/fabi/releases/latest/download/install.sh`.
+Release, donc il est aussi accessible à `https://github.com/Noagiannone03/fabi/releases/latest/download/install.sh`.
 
 ## Mises à jour côté utilisateur
 
@@ -164,4 +164,4 @@ rm -f ~/.local/bin/fabi
   (illimité depuis 2024, avant c'était 2000 min/mois)
 - GitHub Releases est gratuit (jusqu'à 2 GB par fichier)
 - Bandwidth GitHub est inclus
-- Sous-domaine `fabi.aircarto.fr` ne coûte rien (déjà dans ton DNS)
+- Sous-domaine `github.com/Noagiannone03/fabi` ne coûte rien (déjà dans ton DNS)

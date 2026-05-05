@@ -2,7 +2,7 @@
 
 - **Date** : 2026-05-04
 - **Statut** : accepté
-- **Décideur** : Paul (Aircarto)
+- **Décideur** : Paul (Fabi)
 
 ## Contexte
 

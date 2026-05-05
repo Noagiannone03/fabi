@@ -32,7 +32,7 @@ Comment le CLI agentique et le moteur d'inférence sont câblés ensemble.
                   │  Process #2 : parallax worker    │
                   │  (Python subprocess)             │
                   │                                  │
-                  │  - rejoint le scheduler Aircarto │
+                  │  - rejoint le scheduler Fabi │
                   │  - héberge des couches du modèle │
                   │  - communique P2P avec autres   │
                   │    peers via Lattica/libp2p     │
@@ -83,10 +83,10 @@ premier lancement de fabi dans `~/.config/opencode/` (ou équivalent) :
       "npm": "@ai-sdk/openai-compatible",
       "name": "Fabi Network",
       "options": {
-        "baseURL": "https://fabi.aircarto.fr/v1"
+        "baseURL": "https://github.com/Noagiannone03/fabi/v1"
       },
       "models": {
-        "qwen-coder-32b": { "name": "Qwen Coder 32B (Aircarto)" }
+        "qwen-coder-32b": { "name": "Qwen Coder 32B (Fabi)" }
       }
     }
   },
@@ -97,7 +97,7 @@ premier lancement de fabi dans `~/.config/opencode/` (ou équivalent) :
 ```
 
 Cette config :
-- Pointe sur notre scheduler Aircarto
+- Pointe sur notre scheduler Fabi
 - Définit le provider par défaut
 - Active notre thème `fabi` (préinstallé via le branding/)
 
@@ -131,7 +131,7 @@ Quand le worker Parallax se connecte au swarm, on émet un event que la TUI affi
 
 ```
 ✓ Fabi connecté
-  ├─ scheduler : fabi.aircarto.fr (47ms)
+  ├─ scheduler : github.com/Noagiannone03/fabi (47ms)
   ├─ peers     : 12 actifs
   ├─ modèle    : Qwen Coder 32B
   └─ ta contribution : 12 GB VRAM, layers 24-31
@@ -149,7 +149,7 @@ dans `packages/swarm-engine`).
 Phase 4 (distribution) : il faudra **bundler le binaire Parallax** dans l'installeur
 Fabi pour que l'utilisateur n'ait pas besoin de Python. Options :
 - `pyinstaller` ou `nuitka` pour figer Parallax en binaire
-- Téléchargement au premier run depuis nos serveurs Aircarto
+- Téléchargement au premier run depuis nos serveurs Fabi
 - À décider en ADR dédiée plus tard.
 
 ### Versions compatibles
