@@ -1,0 +1,19 @@
+{
+  "name": "@fabi/registry",
+  "version": "0.1.0",
+  "description": "Auto-discovery service for Fabi swarms running on a Docker host",
+  "private": true,
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch run src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --compile --target=bun-linux-x64 --outfile=dist/fabi-registry",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.5.0"
+  }
+}
