@@ -162,6 +162,23 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   rm -rf "$TMP_PY"
   ok  "Python standalone extrait dans runtime/python-base/"
 
+  # 2.5. Source Parallax embarquée
+  # ----------------------------------------------------------------------------
+  # Parallax doit être installé en editable (`pip install -e`) pour suivre son
+  # README et contourner le packaging wheel upstream incomplet. Un editable
+  # écrit un fichier .pth vers le dossier source : ce dossier doit donc vivre
+  # dans le tarball, pas seulement sur la machine GitHub Actions.
+  PARALLAX_BUNDLE_DIR="$PKG_DIR/runtime/parallax-src"
+  log "(2.5/4) Copie du source Parallax dans le runtime…"
+  mkdir -p "$PARALLAX_BUNDLE_DIR"
+  rsync -a \
+    --exclude ".git" \
+    --exclude ".venv" \
+    --exclude "__pycache__" \
+    --exclude "*.pyc" \
+    "$SWARM_ENGINE_DIR/" "$PARALLAX_BUNDLE_DIR/"
+  ok  "Source Parallax embarquée dans runtime/parallax-src/"
+
   # 3. venv + parallax
   log "(3/4) Création du venv et installation de Parallax (peut prendre 5-15 min)…"
   PYTHON_BIN="$PKG_DIR/runtime/python-base/bin/python3"
@@ -188,7 +205,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
       ;;
   esac
 
-  PARALLAX_SPEC="${PARALLAX_SOURCE:-$SWARM_ENGINE_DIR}"
+  PARALLAX_SPEC="${PARALLAX_SOURCE:-$PARALLAX_BUNDLE_DIR}"
   PARALLAX_EXTRA="${PARALLAX_EXTRA:-}"
   if [ -z "$PARALLAX_EXTRA" ]; then
     case "$ACCEL" in
