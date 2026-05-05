@@ -82,9 +82,9 @@ check_one() {
   popd >/dev/null
 }
 
-printf "%s[void-swarm divergence check]%s racine = %s\n" "$C_BLUE" "$C_RESET" "$PROJECT_ROOT"
+printf "%s[fabi divergence check]%s racine = %s\n" "$C_BLUE" "$C_RESET" "$PROJECT_ROOT"
 
-check_one "void-swarm-cli"
+check_one "fabi-cli"
 check_one "swarm-engine"
 
 echo

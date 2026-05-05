@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/theme.json",
+  "name": "Fabi",
+  "description": "Palette Fabi — loutre au coucher de soleil sur l'océan. Chaud, doux, lisible terminal sombre comme clair.",
+  "defs": {
+    "fabi_sunset":      "#FF8C42",
+    "fabi_sunset_dim":  "#E07534",
+    "fabi_ocean":       "#00B4D8",
+    "fabi_ocean_dim":   "#0086A8",
+    "fabi_ocean_deep":  "#1A6FA8",
+    "fabi_cream":       "#FFE5B4",
+    "fabi_cream_dim":   "#E6CB99",
+    "fabi_otter":       "#8B5A3C",
+    "fabi_otter_light": "#A77F5C",
+    "fabi_seafoam":     "#88C0A8",
+    "fabi_amber":       "#FFB347",
+    "fabi_salmon":      "#FF6B6B",
+    "fabi_text":        "#F5E6D3",
+    "fabi_text_dim":    "#A77F5C",
+    "fabi_text_muted":  "#6B5A4A",
+    "fabi_bg":          "none",
+    "fabi_bg_panel":    "#1B1410"
+  },
+  "theme": {
+    "primary":     { "dark": "fabi_sunset",      "light": "fabi_sunset_dim" },
+    "secondary":   { "dark": "fabi_ocean",       "light": "fabi_ocean_dim" },
+    "accent":      { "dark": "fabi_cream",       "light": "fabi_otter" },
+    "text":        { "dark": "fabi_text",        "light": "fabi_otter" },
+    "textMuted":   { "dark": "fabi_text_dim",    "light": "fabi_text_muted" },
+    "background":  { "dark": "fabi_bg",          "light": "fabi_bg" },
+    "border":      { "dark": "fabi_ocean_deep",  "light": "fabi_ocean_dim" },
+    "selection":   { "dark": "fabi_ocean",       "light": "fabi_ocean_dim" },
+    "success":     { "dark": "fabi_seafoam",     "light": "fabi_seafoam" },
+    "warning":     { "dark": "fabi_amber",       "light": "fabi_amber" },
+    "error":       { "dark": "fabi_salmon",      "light": "fabi_salmon" },
+    "info":        { "dark": "fabi_ocean",       "light": "fabi_ocean_dim" }
+  }
+}

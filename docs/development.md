@@ -7,15 +7,15 @@
 | Outil | Version mini | Comment installer |
 |---|---|---|
 | **git** | 2.30+ | `apt install git` ou équivalent |
-| **Bun** | 1.0+ | `curl -fsSL https://bun.sh/install \| bash` (pour `void-swarm-cli`) |
+| **Bun** | 1.0+ | `curl -fsSL https://bun.sh/install \| bash` (pour `fabi-cli`) |
 | **Python** | 3.10+ | déjà standard sur Linux récent (pour `swarm-engine`) |
 | **Node** | 20+ | optionnel, fallback si Bun pas dispo |
 
 ## Setup initial
 
 ```bash
-git clone <ton-fork-meta>/void-swarm
-cd void-swarm
+git clone <ton-fork-meta>/fabi
+cd fabi
 ./scripts/setup.sh           # clone OpenCode + Parallax dans packages/
 ./scripts/check-divergence.sh # vérifie l'état
 ```
@@ -23,10 +23,10 @@ cd void-swarm
 ## Structure après setup
 
 ```
-void-swarm/                       ← le méta-projet (CE repo)
+fabi/                       ← le méta-projet (CE repo)
 ├── README.md, ARCHITECTURE.md, …
 ├── packages/
-│   ├── void-swarm-cli/           ← fork OpenCode (git repo indépendant)
+│   ├── fabi-cli/           ← fork OpenCode (git repo indépendant)
 │   │   └── upstream → sst/opencode (branche dev)
 │   └── swarm-engine/             ← fork Parallax (git repo indépendant)
 │       └── upstream → GradientHQ/parallax (branche main)
@@ -40,16 +40,16 @@ void-swarm/                       ← le méta-projet (CE repo)
 
 ## Workflow quotidien
 
-### Travailler sur le CLI agentique (void-swarm-cli)
+### Travailler sur le CLI agentique (fabi-cli)
 
 ```bash
-cd packages/void-swarm-cli
+cd packages/fabi-cli
 bun install           # premier coup uniquement
 bun dev               # ou la commande dev d'OpenCode (à confirmer dans leur README)
 ```
 
-Travailler dans `packages/void-swarm-cli/` revient à travailler sur OpenCode. Toutes les
-docs OpenCode s'appliquent. Pour ajouter de l'intégration Void-Swarm, plutôt que de
+Travailler dans `packages/fabi-cli/` revient à travailler sur OpenCode. Toutes les
+docs OpenCode s'appliquent. Pour ajouter de l'intégration Fabi, plutôt que de
 modifier des fichiers upstream, on importe depuis `../../integration/`.
 
 ### Travailler sur le moteur d'inférence (swarm-engine)
@@ -95,7 +95,7 @@ Lis [docs/upstream-sync-workflow.md](./upstream-sync-workflow.md) pour les déta
 
 - Chaque sous-repo a ses propres conventions héritées d'upstream.
 - Notre branche locale par défaut suit la branche par défaut d'upstream :
-  - `void-swarm-cli` : `dev`
+  - `fabi-cli` : `dev`
   - `swarm-engine`   : `main`
 - Quand on commit dans un sous-repo, c'est sur **notre** fork (`origin`), jamais
   vers `upstream` (les scripts setup.sh enlèvent `origin` initialement pour éviter
@@ -108,8 +108,8 @@ Lis [docs/upstream-sync-workflow.md](./upstream-sync-workflow.md) pour les déta
 cd packages/swarm-engine
 parallax run -m qwen-coder-32b -n 1   # mode tout-en-un local
 
-# Terminal 2 : CLI void-swarm
-cd packages/void-swarm-cli
+# Terminal 2 : CLI fabi
+cd packages/fabi-cli
 bun run dev   # devrait spawn parallax (via supervisor) et ouvrir la TUI
 ```
 

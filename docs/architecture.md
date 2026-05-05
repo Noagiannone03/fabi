@@ -5,7 +5,7 @@
 
 ## Stack technique
 
-### packages/void-swarm-cli (fork OpenCode)
+### packages/fabi-cli (fork OpenCode)
 
 - **Langage** : TypeScript (~98 %)
 - **Runtime** : Bun (avec fallback Node sur certaines plateformes)
@@ -24,14 +24,14 @@
 
 ### integration/ (notre code)
 
-- **Langage** : TypeScript (cohérent avec void-swarm-cli)
+- **Langage** : TypeScript (cohérent avec fabi-cli)
 - **Runtime cible** : Bun et Node
 - **Pas de dépendances lourdes** — Node natif autant que possible
 
 ## Inter-process communication
 
 ```
-[void-swarm CLI]  ──spawn──►  [parallax worker (Python subprocess)]
+[fabi CLI]  ──spawn──►  [parallax worker (Python subprocess)]
        │                                  │
        │                                  └──libp2p──► [autres peers]
        │
@@ -40,7 +40,7 @@
                                     └──orchestre──► [chemins peers swarm]
 ```
 
-Le serveur void-swarm **n'attaque jamais directement les peers**. Il parle au scheduler,
+Le serveur fabi **n'attaque jamais directement les peers**. Il parle au scheduler,
 qui parle au swarm. Cette indirection nous donne :
 
 - Un point public stable pour authentifier / monitorer
@@ -59,7 +59,7 @@ qui parle au swarm. Cette indirection nous donne :
 
 3. **Couplage faible** : on peut updater chaque côté indépendamment. Une nouvelle version
    de Parallax qui supporte un nouveau modèle ? On fait `sync-upstream.sh` côté
-   swarm-engine, le client void-swarm-cli n'a même pas besoin de changer.
+   swarm-engine, le client fabi-cli n'a même pas besoin de changer.
 
 ## Décisions de design avec leurs alternatives écartées
 

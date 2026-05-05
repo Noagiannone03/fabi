@@ -1,4 +1,4 @@
-Void-Swarm
+Fabi
 ==========
 
 Ce projet incorpore et étend du code provenant des projets open source suivants.
@@ -10,16 +10,16 @@ préservés dans leurs sous-dossiers respectifs sous packages/.
 1. OpenCode
 ---------------------------------------------------------------------
 
-Sous-dossier : packages/void-swarm-cli/
+Sous-dossier : packages/fabi-cli/
 Repo upstream : https://github.com/sst/opencode
 Auteurs : SST / Anomaly et contributeurs OpenCode
 Licence : MIT
 
-Le code dans packages/void-swarm-cli/ est dérivé d'OpenCode. Voir le fichier
+Le code dans packages/fabi-cli/ est dérivé d'OpenCode. Voir le fichier
 LICENSE inclus dans ce sous-dossier pour le texte complet de la licence MIT
 d'OpenCode et les copyrights des contributeurs originaux.
 
-Modifications apportées par Void-Swarm :
+Modifications apportées par Fabi :
   - Voir DIVERGENCE.md à la racine du méta-projet pour la liste détaillée.
 
 ---------------------------------------------------------------------
@@ -35,7 +35,7 @@ Le code dans packages/swarm-engine/ est dérivé de Parallax. Voir le fichier
 LICENSE inclus dans ce sous-dossier pour le texte complet de la licence
 Apache 2.0 et les copyrights des contributeurs originaux.
 
-Modifications apportées par Void-Swarm :
+Modifications apportées par Fabi :
   - Voir DIVERGENCE.md à la racine du méta-projet pour la liste détaillée.
 
 Conformément à la section 4 de la licence Apache 2.0, les modifications majeures
@@ -46,6 +46,6 @@ sont également documentées dans le fichier NOTICE de ce sous-dossier au fur et
 3. Code intégration et méta-projet
 ---------------------------------------------------------------------
 
-Le code propre à Void-Swarm (dossiers integration/, scripts/, branding/, docs/,
+Le code propre à Fabi (dossiers integration/, scripts/, branding/, docs/,
 et tous les fichiers .md à la racine) est sous licence MIT — voir LICENSE à la
 racine.

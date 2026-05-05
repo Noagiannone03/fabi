@@ -1,6 +1,6 @@
 # Sous-repos clonés depuis upstream — ils ont leur propre gestion git
 # Ne pas tracker leur contenu depuis le méta-projet (c'est leur job).
-packages/void-swarm-cli/
+packages/fabi-cli/
 packages/swarm-engine/
 
 # Cependant on garde une trace : le README de packages/ indique quoi cloner.

@@ -116,7 +116,7 @@ log "Sync upstream pour tous les sous-repos."
 log "Racine : $PROJECT_ROOT"
 echo
 
-sync_one "void-swarm-cli"
+sync_one "fabi-cli"
 echo
 sync_one "swarm-engine"
 echo

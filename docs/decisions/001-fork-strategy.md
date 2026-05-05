@@ -6,7 +6,7 @@
 
 ## Contexte
 
-Void-Swarm a besoin :
+Fabi a besoin :
 
 1. D'un agent agentique CLI/TUI/extension VSCode qui sert de produit utilisateur
 2. D'un moteur d'inférence distribué P2P qui fait tourner les modèles en swarm
@@ -26,7 +26,7 @@ Quelle stratégie d'incorporation choisir ?
 ### A. Utiliser comme dépendances pures (sans fork)
 
 - ✅ Maintenance zéro
-- ❌ Branding "Void-Swarm" impossible (TUI affiche "opencode")
+- ❌ Branding "Fabi" impossible (TUI affiche "opencode")
 - ❌ Pas de modifications profondes possibles (par ex spawn auto de Parallax)
 
 ### B. Fork léger sur copie (rebase actif sur upstream)
@@ -59,7 +59,7 @@ en MVP) qui veut une marque indépendante sans assumer le coût d'un hard fork.
 ### Modalités
 
 - **Multi-repo** plutôt que monorepo subtree :
-  - Chaque sous-package (`packages/void-swarm-cli`, `packages/swarm-engine`)
+  - Chaque sous-package (`packages/fabi-cli`, `packages/swarm-engine`)
     est un git repo indépendant cloné depuis upstream.
   - Les remotes : `origin` = notre fork GitHub (à créer), `upstream` = repo officiel.
   - Le méta-projet (CE repo) orchestre : docs, scripts, branding, code d'intégration.
@@ -71,7 +71,7 @@ en MVP) qui veut une marque indépendante sans assumer le coût d'un hard fork.
   - 10 % en patches ciblés sur fichiers upstream (documentés dans DIVERGENCE.md)
 
 - **Branche par défaut** héritée d'upstream :
-  - `dev` pour `void-swarm-cli` (OpenCode)
+  - `dev` pour `fabi-cli` (OpenCode)
   - `main` pour `swarm-engine` (Parallax)
 
 ## Conséquences

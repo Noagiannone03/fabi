@@ -7,7 +7,7 @@ indépendant avec son propre historique et son propre remote `upstream`.
 
 | Sous-dossier | Upstream | Licence | Statut |
 |---|---|---|---|
-| `void-swarm-cli/` | [sst/opencode](https://github.com/sst/opencode) | MIT | À cloner via `./scripts/setup.sh` |
+| `fabi-cli/` | [sst/opencode](https://github.com/sst/opencode) | MIT | À cloner via `./scripts/setup.sh` |
 | `swarm-engine/` | [GradientHQ/parallax](https://github.com/GradientHQ/parallax) | Apache 2.0 | À cloner via `./scripts/setup.sh` |
 
 ## Convention

@@ -52,7 +52,7 @@ qui ont aussi été modifiées chez upstream. Stratégie :
 
 ```bash
 # Pendant un merge bloqué :
-cd packages/void-swarm-cli
+cd packages/fabi-cli
 git status                    # liste les fichiers en conflit
 # Édite chaque fichier, choisis ce que tu veux garder
 git add <fichier-résolu>
@@ -68,7 +68,7 @@ Avant de pousser sur `origin`, **vérifie que ça compile et que les tests passe
 
 ```bash
 # CLI :
-cd packages/void-swarm-cli
+cd packages/fabi-cli
 bun install                   # peut être nécessaire si deps ont changé
 bun run build                 # ou test selon ce qui est dispo
 # Engine :
@@ -89,7 +89,7 @@ pytest                        # si on a des tests à ce stade
 ### 7. Pousser sur origin
 
 ```bash
-cd packages/void-swarm-cli
+cd packages/fabi-cli
 git push origin dev    # ou la branche par défaut si différente
 ```
 
