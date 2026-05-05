@@ -1,0 +1,41 @@
+[Unit]
+Description=Fabi Registry - swarm auto-discovery service
+Documentation=https://github.com/Noagiannone03/fabi
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+# L'utilisateur doit etre dans le groupe `docker` pour que le binaire puisse
+# parler au socket /var/run/docker.sock sans sudo
+User=debian
+Group=docker
+WorkingDirectory=/opt/fabi-registry
+# Binaire compile par `bun build --compile`. Self-contained (Bun runtime
+# embarque), pas besoin d'avoir Node ou Bun installe en prod.
+ExecStart=/opt/fabi-registry/fabi-registry
+Restart=on-failure
+RestartSec=5
+
+# Variables d'env optionnelles — voir src/index.ts pour la liste
+Environment="FABI_REGISTRY_PORT=3002"
+Environment="FABI_REGISTRY_HOST=0.0.0.0"
+Environment="FABI_REGISTRY_INTERVAL_MS=5000"
+
+# Hardening leger : limite l'acces au reste du systeme
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Lecture seule sauf /opt/fabi-registry et le socket Docker
+ReadWritePaths=/opt/fabi-registry
+# Necessaire pour parler au socket Docker
+ReadOnlyPaths=/var/run/docker.sock
+
+# Limites sensees
+LimitNOFILE=65536
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

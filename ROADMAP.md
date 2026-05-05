@@ -28,6 +28,9 @@
 - [ ] Tester sur poste réel : kill -9 le parent, vérifier que Parallax meurt aussi (process group)
 - [ ] Smoke test bout-en-bout : poste local lance fabi → join scheduler local → CLI répond avec le swarm
 - [x] Provider Fabi pré-baké directement dans la config par défaut (zéro env var requise) ; surchargeable par config user
+- [x] **Auto-discovery via fabi-registry (v0.2.0)** : nouveau package `packages/fabi-registry/` côté serveur, scanne les containers Docker avec label `fabi.swarm=true`, extrait le peer ID des logs, expose `GET /v1/swarms`
+- [x] **Commande `fabi swarms`** (v0.2.0) : liste les swarms disponibles avec peers, VRAM, modèle, status
+- [x] **Flags CLI** `--registry`, `--swarm`, `--swarm-model`, `--no-registry` pour piloter la discovery
 
 ## Phase 3 — Rebrand (semaine 4-6)
 

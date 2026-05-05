@@ -45,8 +45,11 @@ La sync se fait toujours vers `upstream/dev`.
 | `packages/opencode/src/swarm/scheduler.ts` | healthcheck `/cluster/status_json` (jamais bloquant) |
 | `packages/opencode/src/swarm/worker.ts` | spawn / stop / killSync du worker `parallax join -s` (process group, SIGTERM puis SIGKILL après grace period) |
 | `packages/opencode/src/swarm/provider-defaults.ts` | objet provider Fabi (npm `@ai-sdk/openai-compatible`, api `<scheduler>/v1`, modèle Qwen) |
-| `packages/opencode/src/swarm/lifecycle.ts` | orchestration : décide quelles commandes triggent le swarm, attache signal handlers, expose `startSwarm` / `shutdownActive` / `shutdownActiveSync` |
+| `packages/opencode/src/swarm/lifecycle.ts` | orchestration : décide quelles commandes triggent le swarm, attache signal handlers, expose `startSwarm` / `shutdownActive` / `shutdownActiveSync`. **(v0.2.0)** Appelle le registry au démarrage via `resolveFromRegistry` pour résoudre dynamiquement scheduler URL + peer ID |
 | `packages/opencode/src/swarm/index.ts` | barrel export du module |
+| `packages/opencode/src/swarm/registry.ts` | **(v0.2.0)** client du fabi-registry, expose `discoverSwarm()` et `fetchRegistrySwarms()`. Logique de matching par id ou par modèle, avec fallback gracieux si registry injoignable |
+| `packages/opencode/src/swarm/registry.test.ts` | **(v0.2.0)** tests unitaires (9) sur la sélection de swarms |
+| `packages/opencode/src/cli/cmd/swarms.ts` | **(v0.2.0)** commande `fabi swarms` qui liste les swarms (table colorée ou `--json`) |
 
 ### Configuration ajoutée par défaut
 
