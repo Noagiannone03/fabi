@@ -210,5 +210,5 @@ ok "${C_GREEN}Fabi ${FABI_VERSION} installé avec succès${C_RESET}"
 echo
 echo "  Lance avec : ${C_GREEN}fabi${C_RESET}"
 echo "  Aide       : ${C_DIM}fabi --help${C_RESET}"
-echo "  Mise à jour: ${C_DIM}curl -fsSL https://fabi.aircarto.fr/install.sh | bash${C_RESET}"
+echo "  Mise à jour: ${C_DIM}curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash${C_RESET}"
 echo
