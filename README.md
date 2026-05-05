@@ -43,7 +43,7 @@ Cible : étudiants, devs solo, hobbyists, écoles, labos, PME — gens pour qui 
         └────────┬───────────────┘
                  ▼
        ┌──────────────────────┐
-       │ Aircarto Scheduler   │
+       │ Fabi Scheduler       │
        │ (orchestrateur du    │
        │  swarm, point public)│
        └──────────┬───────────┘
@@ -54,7 +54,7 @@ Cible : étudiants, devs solo, hobbyists, écoles, labos, PME — gens pour qui 
    (autres users actifs en train de coder)
 ```
 
-Le serveur `fabi` (= fork OpenCode) lance Parallax en sous-process au démarrage. L'utilisateur rejoint donc le swarm dès qu'il ouvre le CLI/IDE, et le quitte quand il ferme. L'inférence pour ses propres requêtes se fait via le scheduler central Aircarto qui route à travers le swarm.
+Le serveur `fabi` lance Parallax en sous-process au démarrage. L'utilisateur rejoint donc le swarm dès qu'il ouvre le CLI/TUI, et le quitte quand il ferme. L'inférence pour ses propres requêtes se fait via le scheduler central Fabi qui route à travers le swarm.
 
 ---
 
@@ -65,7 +65,7 @@ Le serveur `fabi` (= fork OpenCode) lance Parallax en sous-process au démarrage
 | **fabi-cli** | Agent agentique : CLI, TUI, ext VSCode, desktop | fork de [sst/opencode](https://github.com/sst/opencode) (MIT) | `packages/fabi-cli/` |
 | **swarm-engine** | Inférence distribuée P2P | fork de [GradientHQ/parallax](https://github.com/GradientHQ/parallax) (Apache 2.0) | `packages/swarm-engine/` |
 | **integration** | Code de glue : supervisor Parallax, config scheduler | écrit par nous | `integration/` |
-| **scheduler** (futur) | Orchestrateur public Aircarto | écrit par nous | hors monorepo (déployé serveur5 Aircarto) |
+| **scheduler** (futur) | Orchestrateur public Fabi | écrit par nous | hors monorepo |
 
 ---
 
@@ -82,7 +82,7 @@ Le serveur `fabi` (= fork OpenCode) lance Parallax en sous-process au démarrage
 git clone <ton-fork-meta> fabi
 cd fabi
 
-# 2. Récupérer les upstreams (clones de OpenCode et Parallax)
+# 2. Récupérer les upstreams (clones de Fabi CLI et Parallax)
 ./scripts/setup.sh
 
 # 3. Lire la doc dev
@@ -114,5 +114,5 @@ Crédit obligatoire et reconnaissance aux projets upstream — voir [NOTICE](./N
 
 ## Crédits
 
-- **OpenCode** par l'équipe SST (Anomaly) — [sst/opencode](https://github.com/sst/opencode), licence MIT
+- **OpenCode** par l'équipe SST (Anomaly) — [sst/opencode](https://github.com/sst/opencode), licence MIT, base upstream de Fabi CLI
 - **Parallax** par Gradient HQ — [GradientHQ/parallax](https://github.com/GradientHQ/parallax), licence Apache 2.0

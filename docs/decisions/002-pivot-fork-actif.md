@@ -2,7 +2,7 @@
 
 - **Date** : 2026-05-05
 - **Statut** : accepté
-- **Décideur** : Paul (Aircarto)
+- **Décideur** : Paul (Fabi)
 - **Supersedes partiellement** : [ADR 001 — Stratégie de fork](./001-fork-strategy.md) (modalités, pas la décision de principe)
 
 ## Contexte

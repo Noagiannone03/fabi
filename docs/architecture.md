@@ -35,7 +35,7 @@
        │                                  │
        │                                  └──libp2p──► [autres peers]
        │
-       └──HTTP /v1/chat/...──► [scheduler Aircarto]
+       └──HTTP /v1/chat/...──► [scheduler Fabi]
                                     │
                                     └──orchestre──► [chemins peers swarm]
 ```
@@ -51,7 +51,7 @@ qui parle au swarm. Cette indirection nous donne :
 ## Pourquoi cette séparation ?
 
 1. **OpenCode ≠ inférence** : OpenCode délègue déjà l'inférence à des providers externes
-   (Anthropic, OpenAI, Ollama…). On ajoute "Aircarto Swarm" comme un provider de plus.
+   (Anthropic, OpenAI, Ollama…). On ajoute "Fabi Swarm" comme un provider de plus.
    Notre fork ne touche pas le moteur d'inférence d'OpenCode.
 
 2. **Parallax = backend pur** : Parallax fait l'inférence distribuée. Il ne sait pas qu'il

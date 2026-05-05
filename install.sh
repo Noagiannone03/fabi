@@ -3,7 +3,7 @@
 # selon ton OS / arch / GPU et l'installe dans ~/.local/share/fabi/.
 #
 # Usage :
-#   curl -fsSL https://fabi.aircarto.fr/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
 # ou (sans le sous-domaine, direct depuis le repo) :
 #   curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
 #
@@ -44,7 +44,7 @@ ${C_SUNSET}
   ██╔══╝  ██╔══██║██╔══██╗██║
   ██║     ██║  ██║██████╔╝██║
   ╚═╝     ╚═╝  ╚═╝╚═════╝ ╚═╝${C_RESET}
-${C_DIM}  CLI agentique open source qui rejoint le swarm Aircarto${C_RESET}
+${C_DIM}  Agent terminal open source connecté au swarm Fabi${C_RESET}
 
 EOF
 
