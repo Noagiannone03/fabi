@@ -1,6 +1,6 @@
 // Configuration opencode pré-baker pour Fabi.
 //
-// Ce fichier déclare le **provider Fabi** (= scheduler Aircarto, OpenAI-compatible)
+// Ce fichier déclare le **provider Fabi** (= scheduler Fabi, OpenAI-compatible)
 // et le pose comme modèle par défaut. Le launcher fabi-launcher poste l'env var
 // OPENCODE_CONFIG vers ce fichier au moment de spawn opencode, donc l'utilisateur
 // final n'a rien à configurer.
@@ -16,7 +16,7 @@
   "provider": {
     "fabi": {
       "id":   "fabi",
-      "name": "Fabi (Aircarto Swarm)",
+      "name": "Fabi (Fabi Swarm)",
       "npm":  "@ai-sdk/openai-compatible",
       "api":  "http://37.59.98.16:3001/v1",
       "options": {

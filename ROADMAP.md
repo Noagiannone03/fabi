@@ -11,7 +11,7 @@
 
 > Objectif : prouver que la chaîne `agent → scheduler → swarm` fonctionne, sans branding ni rebrand.
 
-- [ ] Faire tourner Parallax pristine sur serveur5 (Aircarto) en mode scheduler
+- [ ] Faire tourner Parallax pristine sur serveur5 (Fabi) en mode scheduler
 - [ ] Lancer un worker Parallax pristine sur serveur1 ou poste local pour héberger Qwen Coder 32B
 - [ ] Configurer OpenCode pristine avec une config `opencode.json` qui pointe sur ce scheduler
 - [ ] Vérifier qu'on obtient des réponses cohérentes via la TUI OpenCode
@@ -47,7 +47,7 @@
 
 ## Phase 4 — Distribution (semaine 6-8)
 
-> Stratégie : `curl -fsSL https://fabi.aircarto.fr/install.sh | bash`
+> Stratégie : `curl -fsSL https://fabi.dev/install.sh | bash`
 > (pattern Ollama / Bun / Pulumi / Claude Code, **pas npm** — on bundle Python+Parallax,
 > trop lourd pour npm). Détails dans [docs/distribution.md](./docs/distribution.md).
 
@@ -56,15 +56,15 @@
 - [x] `.github/workflows/release.yml` — workflow CI matrix (5 runners) qui build sur tag `v*`
 - [x] `install.sh` (Linux/macOS) + `install.ps1` (Windows) — installer côté user
 - [ ] **Tester en local** le pipeline complet (lancer `release-build.sh` avec FABI_SKIP_PARALLAX=1)
-- [ ] **Créer le repo public** `github.com/aircarto/fabi` et push le code
+- [ ] **Créer le repo public** `github.com/Noagiannone03/fabi` et push le code
 - [ ] **Premier release** : `git tag v0.1.0 && git push --tags` → vérifier les 5 tarballs sur GitHub Releases
-- [ ] **Configurer le domaine** `fabi.aircarto.fr` (DNS + serveur web qui sert install.sh)
-- [ ] Page de présentation `fabi.aircarto.fr` avec one-liner d'install
+- [ ] **Configurer le domaine** `fabi.dev` (DNS + serveur web qui sert install.sh)
+- [ ] Page de présentation `fabi.dev` avec one-liner d'install
 - [ ] (Plus tard) Publication VSCode Marketplace + Open VSX
 
 ## Phase 5 — Premiers users (mois 2)
 
-- [ ] Inviter labo Aircarto (~5 personnes)
+- [ ] Inviter labo Fabi (~5 personnes)
 - [ ] Inviter contacts hobbyists / écoles
 - [ ] Monitoring InfluxDB du swarm
 - [ ] Boucle de feedback rapide
@@ -80,7 +80,7 @@
 ## Phase 7 — Scale-out (mois 4+)
 
 - [ ] Multi-scheduler (HA)
-- [ ] Relays NAT Aircarto pour souveraineté
+- [ ] Relays NAT Fabi pour souveraineté
 - [ ] Privacy : R&D sur le chiffrement des hidden states
 - [ ] Plus de modèles : Llama 3.3 70B, Qwen3 110B, DeepSeek V3 671B
 

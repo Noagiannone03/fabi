@@ -1,7 +1,7 @@
 # Fabi installer for Windows (PowerShell).
 #
 # Usage :
-#   irm https://fabi.aircarto.fr/install.ps1 | iex
+#   irm https://fabi.dev/install.ps1 | iex
 # ou (sans le sous-domaine) :
 #   irm https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.ps1 | iex
 #
@@ -30,7 +30,7 @@ Write-Host @"
   ██║     ██║  ██║██████╔╝██║
   ╚═╝     ╚═╝  ╚═╝╚═════╝ ╚═╝
 
-  CLI agentique open source qui rejoint le swarm Aircarto
+  CLI agentique open source qui rejoint le swarm Fabi
 
 "@ -ForegroundColor DarkYellow
 

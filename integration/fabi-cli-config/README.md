@@ -1,6 +1,6 @@
 # integration/fabi-cli-config
 
-Config opencode **pré-baker** pour Fabi : déclare le scheduler Aircarto comme
+Config opencode **pré-baker** pour Fabi : déclare le scheduler Fabi comme
 provider OpenAI-compatible et le pose comme modèle par défaut.
 
 ## Comment c'est branché

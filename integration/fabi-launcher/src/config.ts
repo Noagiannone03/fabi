@@ -8,7 +8,7 @@ import { join } from "node:path"
 
 export interface FabiConfig {
   /**
-   * URL HTTPS du scheduler Aircarto (OpenAI-compatible API).
+   * URL HTTPS du scheduler Fabi (OpenAI-compatible API).
    * Utilisée pour le healthcheck et plus tard pour configurer fabi-cli.
    * Sans trailing slash.
    */
@@ -33,7 +33,7 @@ export interface FabiConfig {
   fabiCliBin?: string
 }
 
-// Scheduler Aircarto en prod (serveur5, 37.59.98.16:3001, container parallax-scheduler).
+// Scheduler Fabi en prod (serveur5, 37.59.98.16:3001, container parallax-scheduler).
 // PeerID Lattica fixe — à mettre à jour si le scheduler est redéployé avec
 // une nouvelle identité. Plus tard : auto-discovery via GET /swarm.json.
 // Modèle = celui que le scheduler annonce dans /cluster/status_json.

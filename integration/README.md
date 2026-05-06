@@ -11,7 +11,7 @@ parce qu'il vit hors des sous-repos forkés.
 | Dossier | Rôle | Statut |
 |---|---|---|
 | [`fabi-launcher/`](./fabi-launcher/) | Le binaire `fabi` : healthcheck scheduler → spawn `parallax join` → exec opencode en foreground avec TTY hérité, cleanup propre à l'exit | ✅ |
-| [`fabi-cli-config/`](./fabi-cli-config/) | `opencode.fabi.jsonc` : provider Fabi (scheduler Aircarto, OpenAI-compatible) pré-baker, posé via `OPENCODE_CONFIG` au spawn | ✅ |
+| [`fabi-cli-config/`](./fabi-cli-config/) | `opencode.fabi.jsonc` : provider Fabi (scheduler Fabi, OpenAI-compatible) pré-baker, posé via `OPENCODE_CONFIG` au spawn | ✅ |
 
 ## Comment c'est branché côté `packages/fabi-cli/`
 
