@@ -5,7 +5,7 @@ Le binaire `fabi`. C'est ce que l'utilisateur lance.
 ## Ce qu'il fait, en 5 étapes
 
 1. **Affiche** le banner FABI + la loutre 🦦
-2. **Pingue** le scheduler Aircarto (healthcheck non bloquant)
+2. **Pingue** le scheduler Fabi (healthcheck non bloquant)
 3. **Démarre** le worker `parallax join -s <peer>` en sous-process pour
    rejoindre le swarm (si `parallax` n'est pas installé : warning + mode autonome)
 4. **Exécute** fabi-cli (fork OpenCode) en foreground avec TTY hérité —
@@ -33,7 +33,7 @@ Une fois compilé, tu peux mettre `dist/index.js` dans le PATH (ou faire
 
 | Flag | Effet |
 |---|---|
-| `--scheduler URL` | URL HTTP du scheduler Aircarto (défaut : `http://37.59.98.16:3001`). Sert au healthcheck `/cluster/status_json` et plus tard à configurer fabi-cli. |
+| `--scheduler URL` | URL HTTP du scheduler Fabi (défaut : `http://37.59.98.16:3001`). Sert au healthcheck `/cluster/status_json` et plus tard à configurer fabi-cli. |
 | `--scheduler-peer PEER` | PeerID Lattica/libp2p à passer à `parallax join -s` (défaut : la PeerID du scheduler de prod). C'est l'adresse du **swarm**, pas l'API HTTP. |
 | `--model NAME` | Modèle par défaut (défaut : `Qwen/Qwen3-Coder-30B-A3B-Instruct`) |
 | `--parallax-bin PATH` | Chemin custom vers le binaire parallax |
@@ -71,7 +71,7 @@ Format JSON :
 
 ```json
 {
-  "scheduler":     "https://fabi.aircarto.fr",
+  "scheduler":     "https://fabi.dev",
   "schedulerPeer": "auto",
   "model":         "qwen-coder-32b",
   "verbose":       false

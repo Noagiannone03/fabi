@@ -58,8 +58,8 @@ Liste les swarms découverts.
   "host": "0.0.0.0",
   "swarms": [
     {
-      "id": "aircarto-prod",
-      "name": "Aircarto Prod (Qwen3-Coder-30B)",
+      "id": "fabi-prod",
+      "name": "Fabi Prod (Qwen3-Coder-30B)",
       "schedulerUrl": "http://37.59.98.16:3001",
       "schedulerPeer": "12D3KooWKLCTHRAhMEafQfaGZTAEx8kJjeMqpXDDeyhBGVotuSfR",
       "model": "Qwen/Qwen3-Coder-30B-A3B-Instruct",

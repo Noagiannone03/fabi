@@ -53,7 +53,7 @@ La sync se fait toujours vers `upstream/dev`.
 
 ### Configuration ajoutée par défaut
 
-Le provider `fabi` (scheduler Aircarto, OpenAI-compatible) et le modèle
+Le provider `fabi` (scheduler Fabi, OpenAI-compatible) et le modèle
 `fabi/Qwen/Qwen3-Coder-30B-A3B-Instruct` sont pré-bakés dans la config.
 Surchargeables par config user (`~/.config/opencode/opencode.json`),
 `OPENCODE_CONFIG`, et flags CLI (`--scheduler`, `--scheduler-peer`,
@@ -121,7 +121,7 @@ _Aucun pour l'instant._
 | Chemin | Description |
 |---|---|
 | `integration/fabi-launcher/` | Le binaire `fabi` : orchestre healthcheck + spawn parallax + exec fabi-cli en foreground. Remplace l'ancienne idée de `parallax-supervisor` côté serveur OpenCode (launcher externe = aucun diff vs upstream) |
-| `integration/fabi-cli-config/` | `opencode.fabi.jsonc` : déclare le provider Fabi (scheduler Aircarto, `@ai-sdk/openai-compatible`) et le pose comme modèle par défaut. Chargé via l'env `OPENCODE_CONFIG` qu'opencode supporte officiellement → zéro patch source |
+| `integration/fabi-cli-config/` | `opencode.fabi.jsonc` : déclare le provider Fabi (scheduler Fabi, `@ai-sdk/openai-compatible`) et le pose comme modèle par défaut. Chargé via l'env `OPENCODE_CONFIG` qu'opencode supporte officiellement → zéro patch source |
 | `branding/` | ASCII art, thèmes, manifest de marque Fabi |
 | `docs/`, `scripts/`, fichiers racine `.md` | Docs & orchestration meta-projet |
 
