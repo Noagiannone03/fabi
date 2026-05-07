@@ -51,7 +51,10 @@ export class SwarmScanner {
 
   constructor(docker: DockerClient, opts: ScannerOptions = {}) {
     this.docker = docker
-    this.intervalMs = opts.intervalMs ?? 5_000
+    // 10s : assez réactif pour qu'un join/leave soit visible en moins d'un
+    // cycle TUI (poll côté CLI = 15s), sans matraquer le daemon Docker
+    // (un scan = list + inspect + logs sur chaque container fabi).
+    this.intervalMs = opts.intervalMs ?? 10_000
     this.healthcheckTimeoutMs = opts.healthcheckTimeoutMs ?? 3_000
     this.logTailLines = opts.logTailLines ?? 500
     this.logger = opts.logger ?? console
