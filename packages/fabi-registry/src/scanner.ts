@@ -42,6 +42,23 @@ export class SwarmScanner {
   /** Cache des swarms — mis à jour après chaque scan. Lecture O(1). */
   private cache: Map<string, SwarmEntry> = new Map()
 
+  /**
+   * Cache des peer IDs déjà extraits, par **container ID Docker**.
+   *
+   * Sans ce cache, on relisait `tail -n 500` à chaque scan ; après quelques
+   * heures d'uptime du scheduler, la ligne `Stored scheduler peer id: …`
+   * (loggée une seule fois au boot, ligne ~30) sortait de la fenêtre tail
+   * et l'extraction renvoyait `null`. Le client CLI filtrait alors le
+   * swarm comme "no usable swarm" même si le scheduler répondait nickel.
+   *
+   * On clé par container ID (pas par swarm ID) parce que le peer ID
+   * dépend de l'instance Parallax : un `docker compose up --force-recreate`
+   * ré-attribue un container ID **et** un peer ID, donc l'invalidation
+   * est gratuite — pas trouvé en cache → on relit les logs depuis le
+   * début (`tail = "all"`) une fois, on cache à vie pour ce container.
+   */
+  private peerIdByContainerId: Map<string, string> = new Map()
+
   /** Timer du loop — null si pas démarré. */
   private timer: ReturnType<typeof setInterval> | null = null
 
@@ -114,12 +131,14 @@ export class SwarmScanner {
 
     // Containers vus dans ce scan, pour purger ceux disparus
     const seen = new Set<string>()
+    const seenContainerIds = new Set<string>()
 
     // Scanne chaque container en parallèle (peer ID + healthcheck indépendants)
     await Promise.all(
       containers.map(async (c) => {
         const id = c.labels["fabi.swarm.id"] ?? c.name
         seen.add(id)
+        seenContainerIds.add(c.id)
         const entry = await this.buildEntry(c)
         this.cache.set(entry.id, entry)
       }),
@@ -129,6 +148,14 @@ export class SwarmScanner {
     for (const cachedId of this.cache.keys()) {
       if (!seen.has(cachedId)) {
         this.cache.delete(cachedId)
+      }
+    }
+    // Idem pour le cache de peer IDs : si le container a disparu (recreate
+    // avec un nouvel ID p.ex.), on jette son entrée pour que le prochain
+    // scan re-extraie le peer ID frais.
+    for (const cachedContainerId of this.peerIdByContainerId.keys()) {
+      if (!seenContainerIds.has(cachedContainerId)) {
+        this.peerIdByContainerId.delete(cachedContainerId)
       }
     }
   }
@@ -148,13 +175,24 @@ export class SwarmScanner {
     const model = container.labels["fabi.swarm.model"] ?? ""
     const schedulerUrl = (container.labels["fabi.swarm.url"] ?? "").replace(/\/+$/, "")
 
-    // Peer ID via parse des logs — résilient si Parallax restart (on relit)
-    let schedulerPeer: string | null = null
-    try {
-      const logs = await this.docker.getLogs(container.id, this.logTailLines)
-      schedulerPeer = extractPeerIdFromLogs(logs)
-    } catch (err) {
-      this.logger.error(`[scanner] log read failed for ${id}:`, (err as Error).message)
+    // Peer ID via parse des logs. Le peer ID est loggé UNE seule fois au
+    // boot (ligne ~30 typiquement). On cache par container.id : si déjà
+    // vu, on ressort la valeur sans toucher Docker. Si pas trouvé, on
+    // demande tout le log (`"all"`) plutôt que le tail courant pour
+    // garantir qu'on couvre les logs de boot, puis on cache.
+    let schedulerPeer: string | null = this.peerIdByContainerId.get(container.id) ?? null
+    if (!schedulerPeer) {
+      try {
+        // Premier passage : lire TOUT le log historique pour ne pas rater
+        // la ligne de boot, même si le container tourne depuis longtemps.
+        const logs = await this.docker.getLogs(container.id, "all")
+        schedulerPeer = extractPeerIdFromLogs(logs)
+        if (schedulerPeer) {
+          this.peerIdByContainerId.set(container.id, schedulerPeer)
+        }
+      } catch (err) {
+        this.logger.error(`[scanner] log read failed for ${id}:`, (err as Error).message)
+      }
     }
 
     // Healthcheck du scheduler — données dynamiques
