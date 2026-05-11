@@ -30,7 +30,7 @@ export function startHttpServer(opts: ServerOptions) {
     port,
     hostname: host,
     async fetch(req) {
-      const url = new URL(req.url)
+      const url = new URL(req.url, `http://${host}:${port}`)
 
       if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS })

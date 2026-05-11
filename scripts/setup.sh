@@ -9,6 +9,8 @@
 #   PARALLAX_UPSTREAM      URL upstream Parallax (défaut: github.com/GradientHQ/parallax)
 #   OPENCODE_FORK_REMOTE   URL de TON fork OpenCode (sera origin) — vide si pas encore créé
 #   PARALLAX_FORK_REMOTE   URL de TON fork Parallax (sera origin) — vide si pas encore créé
+#   OPENCODE_REF           branche/tag/commit à checkout après clone (optionnel)
+#   PARALLAX_REF           branche/tag/commit à checkout après clone (optionnel)
 
 set -euo pipefail
 
@@ -34,6 +36,8 @@ OPENCODE_UPSTREAM="${OPENCODE_UPSTREAM:-https://github.com/sst/opencode.git}"
 PARALLAX_UPSTREAM="${PARALLAX_UPSTREAM:-https://github.com/GradientHQ/parallax.git}"
 OPENCODE_FORK_REMOTE="${OPENCODE_FORK_REMOTE:-}"
 PARALLAX_FORK_REMOTE="${PARALLAX_FORK_REMOTE:-}"
+OPENCODE_REF="${OPENCODE_REF:-}"
+PARALLAX_REF="${PARALLAX_REF:-}"
 
 # ----------------------------------------------------------------------------
 # Pré-vérifs
@@ -53,10 +57,12 @@ mkdir -p "$PACKAGES_DIR"
 #   $1 : nom du sous-dossier (ex: "fabi-cli")
 #   $2 : URL upstream
 #   $3 : URL de notre fork (peut être vide)
+#   $4 : ref à checkout (peut être vide)
 clone_or_setup() {
   local subdir="$1"
   local upstream_url="$2"
   local fork_url="$3"
+  local checkout_ref="$4"
   local target="$PACKAGES_DIR/$subdir"
 
   # Source du clone : si le fork user est fourni → on clone depuis le fork
@@ -108,6 +114,18 @@ clone_or_setup() {
   log "$subdir : remotes finaux :"
   git remote -v | sed 's/^/    /'
 
+  if [[ -n "$checkout_ref" ]]; then
+    log "$subdir : checkout $checkout_ref"
+    git fetch --all --tags --prune
+    if git show-ref --verify --quiet "refs/remotes/origin/$checkout_ref"; then
+      git checkout -B "$checkout_ref" "origin/$checkout_ref"
+    elif git show-ref --verify --quiet "refs/remotes/upstream/$checkout_ref"; then
+      git checkout -B "$checkout_ref" "upstream/$checkout_ref"
+    else
+      git checkout "$checkout_ref"
+    fi
+  fi
+
   popd >/dev/null
 }
 
@@ -119,9 +137,9 @@ log "Racine projet : $PROJECT_ROOT"
 log "Cible packages : $PACKAGES_DIR"
 echo
 
-clone_or_setup "fabi-cli" "$OPENCODE_UPSTREAM" "$OPENCODE_FORK_REMOTE"
+clone_or_setup "fabi-cli" "$OPENCODE_UPSTREAM" "$OPENCODE_FORK_REMOTE" "$OPENCODE_REF"
 echo
-clone_or_setup "swarm-engine"   "$PARALLAX_UPSTREAM" "$PARALLAX_FORK_REMOTE"
+clone_or_setup "swarm-engine"   "$PARALLAX_UPSTREAM" "$PARALLAX_FORK_REMOTE" "$PARALLAX_REF"
 echo
 
 # ----------------------------------------------------------------------------

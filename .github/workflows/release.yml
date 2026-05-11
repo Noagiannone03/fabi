@@ -97,7 +97,9 @@ jobs:
           # On clone depuis NOS forks (qui contiennent les modifs Fabi),
           # pas depuis upstream. Configurable via les variables ci-dessous.
           OPENCODE_FORK_REMOTE: ${{ vars.OPENCODE_FORK_REMOTE || 'https://github.com/Noagiannone03/fabi-cli.git' }}
-          PARALLAX_FORK_REMOTE: ${{ vars.PARALLAX_FORK_REMOTE || '' }}
+          OPENCODE_REF: ${{ vars.OPENCODE_REF || 'dev' }}
+          PARALLAX_FORK_REMOTE: ${{ vars.PARALLAX_FORK_REMOTE || 'https://github.com/Noagiannone03/swarm-engine.git' }}
+          PARALLAX_REF: ${{ vars.PARALLAX_REF || 'fabi-patches' }}
           OPENCODE_UPSTREAM: https://github.com/sst/opencode.git
           PARALLAX_UPSTREAM: https://github.com/GradientHQ/parallax.git
         run: |
