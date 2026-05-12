@@ -38,7 +38,7 @@ export interface FabiConfig {
 // une nouvelle identité. Plus tard : auto-discovery via GET /swarm.json.
 // Modèle = celui que le scheduler annonce dans /cluster/status_json.
 export const DEFAULTS: FabiConfig = {
-  scheduler:     "http://37.59.98.16:3001",
+  scheduler:     "https://server.undefinedstudio.fr/fabi-scheduler",
   schedulerPeer: "12D3KooWKLCTHRAhMEafQfaGZTAEx8kJjeMqpXDDeyhBGVotuSfR",
   model:         "Qwen/Qwen3-Coder-30B-A3B-Instruct",
   noParallax:    false,

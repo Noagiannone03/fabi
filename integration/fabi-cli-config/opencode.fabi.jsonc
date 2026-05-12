@@ -18,7 +18,7 @@
       "id":   "fabi",
       "name": "Fabi (Fabi Swarm)",
       "npm":  "@ai-sdk/openai-compatible",
-      "api":  "http://37.59.98.16:3001/v1",
+      "api":  "https://server.undefinedstudio.fr/fabi-scheduler/v1",
       "options": {
         // Le scheduler Parallax accepte l'auth ouverte pour l'instant. On passe
         // une clé placeholder car le SDK openai-compatible exige souvent une
