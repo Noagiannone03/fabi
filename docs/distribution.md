@@ -46,7 +46,7 @@ uploadent leur tarball sur la GitHub Release du tag.
 | `ubuntu-24.04-arm` | `bun-linux-arm64` | `aarch64-unknown-linux-gnu` | `cpu` |
 | `macos-14` | `bun-darwin-arm64` | `aarch64-apple-darwin` | `mlx` |
 | `macos-13` | `bun-darwin-x64` | `x86_64-apple-darwin` | `cpu` |
-| `windows-latest` | _désactivé pour l'instant_ | — | — |
+| `windows-latest` | _mode natif désactivé par défaut_ | — | — |
 
 ### 3. `install.sh` (Linux + macOS)
 
@@ -64,7 +64,14 @@ fallback). Fait :
 
 ### 4. `install.ps1` (Windows)
 
-Pendant PowerShell de `install.sh`. Place dans `%LOCALAPPDATA%\fabi\`.
+Pendant PowerShell de `install.sh`. Le mode par défaut est `FABI_WINDOWS_MODE=wsl` :
+il installe le runtime Linux dans WSL puis pose un shim `fabi.ps1`/`fabi.cmd`
+dans `%LOCALAPPDATA%\fabi\bin`. C'est volontaire : vLLM ne supporte pas
+Windows nativement, alors que WSL est le chemin officiel pour CUDA sur Windows.
+
+`FABI_WINDOWS_MODE=native` reste disponible pour tester un asset
+`fabi-windows-<arch>-<accel>.tar.zst`, mais ce n'est pas le chemin recommandé
+tant que Parallax/vLLM/SGLang ne sont pas validés nativement sous Windows.
 
 ## Le flux complet
 
@@ -100,8 +107,10 @@ curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh 
 irm https://github.com/Noagiannone03/fabi/releases/latest/download/install.ps1 | iex
 ```
 
-Après ça : `fabi` est dans son PATH, `fabi` lance le binaire qui spawn
-Parallax depuis le venv bundlé. **Aucune install Python séparée requise**.
+Après ça : `fabi` est dans son PATH. Sur Linux/macOS, `fabi` lance le binaire
+local qui spawn Parallax depuis le venv bundlé ou géré. Sur Windows, le shim
+appelle `wsl.exe` et laisse le runtime Linux Fabi rejoindre le swarm avec les
+mêmes limites mémoire CUDA/Parallax.
 
 ## Variantes par plateforme — tailles attendues
 

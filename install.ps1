@@ -1,17 +1,21 @@
 # Fabi installer for Windows (PowerShell).
 #
-# Usage :
-#   irm https://fabi.dev/install.ps1 | iex
-# ou (sans le sous-domaine) :
+# Usage:
+#   irm https://github.com/Noagiannone03/fabi/releases/latest/download/install.ps1 | iex
 #   irm https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.ps1 | iex
 #
-# Variables d'environnement supportées :
-#   $env:FABI_VERSION   version à installer (défaut : latest)
-#   $env:FABI_INSTALL   dossier d'install (défaut : $env:LOCALAPPDATA\fabi)
-#   $env:FABI_REPO      override repo source (défaut : Noagiannone03/fabi)
+# Supported environment variables:
+#   $env:FABI_VERSION       version to install (default: latest)
+#   $env:FABI_INSTALL       Windows shim directory (default: $env:LOCALAPPDATA\fabi)
+#   $env:FABI_REPO          source repo override (default: Noagiannone03/fabi)
+#   $env:FABI_ACCEL         force accelerator (cuda / cpu)
+#   $env:FABI_WINDOWS_MODE  wsl (default) or native
+#   $env:FABI_WSL_DISTRO    optional WSL distro name passed to wsl.exe -d
 #
-# NOTE : install.ps1 est encore expérimental — la cible windows-x64 doit être
-# activée dans .github/workflows/release.yml avant de pouvoir l'utiliser.
+# Native Windows vLLM is not supported upstream. The default Windows path runs
+# the Linux Fabi runtime inside WSL, which is the official vLLM-compatible route
+# for NVIDIA CUDA on Windows. Set FABI_WINDOWS_MODE=native only for testing a
+# windows-*.tar.zst release asset.
 
 $ErrorActionPreference = "Stop"
 
@@ -20,115 +24,255 @@ function Write-Ok($msg)   { Write-Host "[fabi-install] $msg" -ForegroundColor Gr
 function Write-Warn($msg) { Write-Warning "[fabi-install] $msg" }
 function Write-Err($msg)  { Write-Host "[fabi-install] $msg" -ForegroundColor Red }
 
-# Banner
+function Get-FabiRepo {
+    if ($env:FABI_REPO) { return $env:FABI_REPO }
+    return "Noagiannone03/fabi"
+}
+
+function Get-FabiVersion {
+    param([string]$Repo)
+    if ($env:FABI_VERSION) { return $env:FABI_VERSION }
+    return "latest"
+}
+
+function Get-InstallRoot {
+    if ($env:FABI_INSTALL) { return $env:FABI_INSTALL }
+    return (Join-Path $env:LOCALAPPDATA "fabi")
+}
+
+function Test-NvidiaGpu {
+    return [bool](Get-Command "nvidia-smi.exe" -ErrorAction SilentlyContinue)
+}
+
+function Get-Accel {
+    if ($env:FABI_ACCEL) { return $env:FABI_ACCEL }
+    if (Test-NvidiaGpu) { return "cuda" }
+    return "cpu"
+}
+
+function Quote-Bash {
+    param([string]$Value)
+    return "'" + ($Value -replace "'", "'\''") + "'"
+}
+
+function Invoke-Wsl {
+    param([string[]]$Arguments)
+    $baseArgs = @()
+    if ($env:FABI_WSL_DISTRO) {
+        $baseArgs += @("-d", $env:FABI_WSL_DISTRO)
+    }
+    $baseArgs += $Arguments
+    & wsl.exe @baseArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "wsl.exe failed with exit code $LASTEXITCODE"
+    }
+}
+
+function Assert-WslReady {
+    if (-not (Get-Command "wsl.exe" -ErrorAction SilentlyContinue)) {
+        Write-Err "WSL n'est pas disponible. Installe WSL puis relance:"
+        Write-Host "  wsl --install -d Ubuntu"
+        exit 1
+    }
+
+    try {
+        Invoke-Wsl @("--status") | Out-Null
+    } catch {
+        Write-Warn "Impossible de lire le statut WSL. On tente quand meme l'installation."
+    }
+
+    $distroList = (& wsl.exe -l -q 2>$null) | Where-Object { $_.Trim().Length -gt 0 }
+    if (-not $distroList -and -not $env:FABI_WSL_DISTRO) {
+        Write-Err "Aucune distribution WSL detectee. Installe Ubuntu puis relance:"
+        Write-Host "  wsl --install -d Ubuntu"
+        exit 1
+    }
+}
+
+function Install-WslFabi {
+    param(
+        [string]$Repo,
+        [string]$Version,
+        [string]$Accel,
+        [string]$InstallRoot
+    )
+
+    Assert-WslReady
+
+    if ($Accel -eq "cuda" -and -not (Test-NvidiaGpu)) {
+        Write-Warn "FABI_ACCEL=cuda mais nvidia-smi.exe est introuvable cote Windows."
+        Write-Warn "Assure-toi d'avoir un driver NVIDIA recent avec support WSL CUDA."
+    }
+
+    $installUrl = "https://raw.githubusercontent.com/${Repo}/main/install.sh"
+    $bash = @(
+        "set -e"
+        "export FABI_REPO=$(Quote-Bash $Repo)"
+        "export FABI_ACCEL=$(Quote-Bash $Accel)"
+        "export FABI_PARALLAX_EXTRA=$(Quote-Bash $(if ($Accel -eq 'cuda') { 'gpu' } else { '' }))"
+        "export FABI_PARALLAX_REF=$(Quote-Bash $(if ($env:FABI_PARALLAX_REF) { $env:FABI_PARALLAX_REF } else { 'fabi-patches' }))"
+    )
+    if ($Version -ne "latest") {
+        $bash += "export FABI_VERSION=$(Quote-Bash $Version)"
+    }
+    $bash += "command -v curl >/dev/null 2>&1 || { echo 'curl manquant dans WSL. Installe-le: sudo apt install curl' >&2; exit 1; }"
+    $bash += "curl -fsSL $(Quote-Bash $installUrl) | bash"
+    $bash += "fabi --help >/dev/null || true"
+
+    Write-Log "Installation Linux Fabi dans WSL ($Accel)..."
+    Invoke-Wsl @("bash", "-lc", ($bash -join "; "))
+
+    $binDir = Join-Path $InstallRoot "bin"
+    New-Item -Type Directory -Path $binDir -Force | Out-Null
+
+    $psShim = Join-Path $binDir "fabi.ps1"
+    $cmdShim = Join-Path $binDir "fabi.cmd"
+
+    @'
+$ErrorActionPreference = "Stop"
+$wslBase = @()
+if ($env:FABI_WSL_DISTRO) {
+    $wslBase += @("-d", $env:FABI_WSL_DISTRO)
+}
+$wslBase += @("bash", "-lc", 'fabi "$@"', "fabi")
+$allArgs = @()
+$allArgs += $wslBase
+$allArgs += $args
+& wsl.exe @allArgs
+exit $LASTEXITCODE
+'@ | Set-Content -Path $psShim -Encoding UTF8
+
+    @'
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0fabi.ps1" %*
+'@ | Set-Content -Path $cmdShim -Encoding ASCII
+
+    Add-ToUserPath $binDir
+    Write-Ok "Fabi installe via WSL"
+    Write-Host ""
+    Write-Host "  Lance avec : fabi"
+    Write-Host "  Runtime    : WSL Linux ($Accel)"
+    Write-Host ""
+}
+
+function Add-ToUserPath {
+    param([string]$BinDir)
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ($userPath -notlike "*$BinDir*") {
+        Write-Log "Ajout de $BinDir au PATH utilisateur..."
+        if ([string]::IsNullOrWhiteSpace($userPath)) {
+            [Environment]::SetEnvironmentVariable("Path", $BinDir, "User")
+        } else {
+            [Environment]::SetEnvironmentVariable("Path", "$userPath;$BinDir", "User")
+        }
+        Write-Warn "Redemarre ton terminal pour que fabi soit reconnu."
+    }
+}
+
+function Install-NativeFabi {
+    param(
+        [string]$Repo,
+        [string]$Version,
+        [string]$Accel,
+        [string]$InstallRoot
+    )
+
+    $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
+        "AMD64" { "x64" }
+        "ARM64" { "arm64" }
+        default {
+            Write-Err "Architecture non supportee : $($env:PROCESSOR_ARCHITECTURE)"
+            exit 1
+        }
+    }
+    $platform = "windows-${arch}-${Accel}"
+    Write-Log "Plateforme native detectee : $platform"
+
+    if ($Version -eq "latest") {
+        Write-Log "Resolution de la derniere version..."
+        $api = Invoke-RestMethod "https://api.github.com/repos/${Repo}/releases/latest"
+        $Version = $api.tag_name
+    }
+    Write-Ok "Version cible : $Version"
+
+    $tarballName = "fabi-${platform}.tar.zst"
+    $tarballUrl = "https://github.com/${Repo}/releases/download/${Version}/${tarballName}"
+    $shaUrl = "${tarballUrl}.sha256"
+
+    $tmpDir = New-Item -Type Directory -Path (Join-Path $env:TEMP "fabi-install-$([guid]::NewGuid().ToString())")
+    try {
+        $tarballPath = Join-Path $tmpDir "fabi.tar.zst"
+        Write-Log "Telechargement : $tarballUrl"
+        Invoke-WebRequest -Uri $tarballUrl -OutFile $tarballPath -UseBasicParsing
+
+        try {
+            $expected = (Invoke-WebRequest -Uri $shaUrl -UseBasicParsing).Content.Trim().Split()[0]
+            $actual = (Get-FileHash -Path $tarballPath -Algorithm SHA256).Hash.ToLower()
+            if ($expected -ne $actual) {
+                Write-Err "SHA256 mismatch. Attendu: $expected, Recu: $actual"
+                exit 1
+            }
+            Write-Ok "Integrite verifiee"
+        } catch {
+            Write-Warn "Pas de fichier .sha256 disponible; verification skippee"
+        }
+
+        if (Test-Path $InstallRoot) {
+            $backup = "${InstallRoot}.backup-$(Get-Date -UFormat %s)"
+            Write-Warn "Install existante detectee, backup -> $backup"
+            Move-Item $InstallRoot $backup
+        }
+
+        if (-not (Get-Command "zstd.exe" -ErrorAction SilentlyContinue)) {
+            Write-Err "zstd.exe n'est pas disponible. Installe: winget install Facebook.Zstandard"
+            exit 1
+        }
+
+        New-Item -Type Directory -Path $InstallRoot -Force | Out-Null
+        & zstd.exe -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
+        & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $InstallRoot --strip-components=1
+
+        $fabiBin = Join-Path $InstallRoot "bin\fabi.exe"
+        if (-not (Test-Path $fabiBin)) {
+            Write-Err "fabi.exe absent apres extraction : $fabiBin"
+            exit 1
+        }
+
+        Add-ToUserPath (Join-Path $InstallRoot "bin")
+        Write-Ok "Fabi $Version installe en mode Windows natif"
+    } finally {
+        Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Host @"
 
-  ███████╗ █████╗ ██████╗ ██╗
-  ██╔════╝██╔══██╗██╔══██╗██║
-  █████╗  ███████║██████╔╝██║
-  ██╔══╝  ██╔══██║██╔══██╗██║
-  ██║     ██║  ██║██████╔╝██║
-  ╚═╝     ╚═╝  ╚═╝╚═════╝ ╚═╝
+  FABI
 
-  CLI agentique open source qui rejoint le swarm Fabi
+  CLI agentique open source connecte au swarm Fabi
 
 "@ -ForegroundColor DarkYellow
 
-# Detection arch
-$arch = switch ($env:PROCESSOR_ARCHITECTURE) {
-    "AMD64" { "x64" }
-    "ARM64" { "arm64" }
-    default { Write-Err "Architecture non supportée : $($env:PROCESSOR_ARCHITECTURE)"; exit 1 }
-}
+$repo = Get-FabiRepo
+$version = Get-FabiVersion -Repo $repo
+$accel = Get-Accel
+$installRoot = Get-InstallRoot
+$mode = if ($env:FABI_WINDOWS_MODE) { $env:FABI_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
 
-# Detection accel
-$accel = if ($env:FABI_ACCEL) {
-    $env:FABI_ACCEL
-} elseif (Get-Command "nvidia-smi.exe" -ErrorAction SilentlyContinue) {
-    "cuda"
-} else {
-    "cpu"
-}
+Write-Log "Repo: $repo"
+Write-Log "Version: $version"
+Write-Log "Accel: $accel"
+Write-Log "Mode Windows: $mode"
 
-$platform = "windows-${arch}-${accel}"
-Write-Log "Plateforme détectée : $platform"
-
-# Resolution version
-$repo = if ($env:FABI_REPO) { $env:FABI_REPO } else { "Noagiannone03/fabi" }
-$version = if ($env:FABI_VERSION) {
-    $env:FABI_VERSION
-} else {
-    Write-Log "Résolution de la dernière version…"
-    $api = Invoke-RestMethod "https://api.github.com/repos/${repo}/releases/latest"
-    $api.tag_name
-}
-Write-Ok "Version cible : $version"
-
-$tarballName = "fabi-${platform}.tar.zst"
-$tarballUrl = "https://github.com/${repo}/releases/download/${version}/${tarballName}"
-$shaUrl = "${tarballUrl}.sha256"
-
-# Download
-$installRoot = if ($env:FABI_INSTALL) { $env:FABI_INSTALL } else { Join-Path $env:LOCALAPPDATA "fabi" }
-$tmpDir = New-Item -Type Directory -Path (Join-Path $env:TEMP "fabi-install-$([guid]::NewGuid().ToString())")
-try {
-    $tarballPath = Join-Path $tmpDir "fabi.tar.zst"
-
-    Write-Log "Téléchargement : $tarballUrl"
-    Invoke-WebRequest -Uri $tarballUrl -OutFile $tarballPath -UseBasicParsing
-
-    # SHA256 check (best effort)
-    try {
-        $expected = (Invoke-WebRequest -Uri $shaUrl -UseBasicParsing).Content.Trim().Split()[0]
-        $actual = (Get-FileHash -Path $tarballPath -Algorithm SHA256).Hash.ToLower()
-        if ($expected -ne $actual) {
-            Write-Err "SHA256 mismatch ! Attendu: $expected, Reçu: $actual"
-            exit 1
-        }
-        Write-Ok "Intégrité vérifiée"
-    } catch {
-        Write-Warn "Pas de fichier .sha256 dispo — vérification skipée"
+switch ($mode) {
+    "wsl" {
+        Install-WslFabi -Repo $repo -Version $version -Accel $accel -InstallRoot $installRoot
     }
-
-    # Backup existing install
-    if (Test-Path $installRoot) {
-        $backup = "${installRoot}.backup-$(Get-Date -UFormat %s)"
-        Write-Warn "Install existante détectée, backup → $backup"
-        Move-Item $installRoot $backup
+    "native" {
+        Install-NativeFabi -Repo $repo -Version $version -Accel $accel -InstallRoot $installRoot
     }
-
-    # Extract via tar (Windows 10+ a tar bundlé, mais pas zstd natif)
-    Write-Log "Installation dans $installRoot…"
-    if (-not (Get-Command "zstd.exe" -ErrorAction SilentlyContinue)) {
-        Write-Err "zstd.exe n'est pas disponible. Install : winget install Facebook.Zstandard"
+    default {
+        Write-Err "FABI_WINDOWS_MODE invalide: $mode (attendu: wsl ou native)"
         exit 1
     }
-
-    New-Item -Type Directory -Path $installRoot -Force | Out-Null
-    & zstd.exe -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
-    & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $installRoot --strip-components=1
-
-    $fabiBin = Join-Path $installRoot "bin\fabi.exe"
-    if (-not (Test-Path $fabiBin)) {
-        Write-Err "fabi.exe absent après extraction : $fabiBin"
-        exit 1
-    }
-
-    # PATH
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $binDir = Join-Path $installRoot "bin"
-    if ($userPath -notlike "*$binDir*") {
-        Write-Log "Ajout de $binDir au PATH utilisateur…"
-        [Environment]::SetEnvironmentVariable("Path", "$userPath;$binDir", "User")
-        Write-Warn "Redémarre ton terminal pour que `fabi` soit reconnu."
-    }
-
-    Write-Host ""
-    Write-Ok "Fabi $version installé avec succès"
-    Write-Host ""
-    Write-Host "  Lance avec : fabi"
-    Write-Host "  Aide       : fabi --help"
-    Write-Host ""
-} finally {
-    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
 }
