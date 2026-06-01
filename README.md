@@ -14,47 +14,40 @@ un gros modèle (Qwen Coder, Llama 3.x, DeepSeek…) réparti entre tous les pee
 ## 🚀 Installation
 
 > Une seule commande. L'installeur détecte ton OS / GPU, télécharge le bon runtime
-> et ajoute `fabi` à ton `PATH`. Relance ton terminal ensuite.
+> et ajoute `fabi` à ton `PATH`. Relance ton terminal ensuite, puis lance `fabi`.
 
-### Windows
-
-Fabi tourne **dans WSL** sur Windows (le moteur d'inférence GPU n'existe pas en
-natif Windows — WSL est la voie officielle pour NVIDIA CUDA). Il faut donc WSL.
-
-1. **Installer WSL** (une fois), dans PowerShell **en admin** :
-   ```powershell
-   wsl --install -d Ubuntu
-   ```
-   Redémarre si demandé. *(Pour contribuer en GPU : driver NVIDIA récent — le
-   support CUDA-on-WSL est inclus, rien d'autre à installer côté Linux.)*
-
-2. **Installer Fabi**, dans PowerShell :
-   ```powershell
-   irm https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.ps1 | iex
-   ```
-
-3. Rouvre ton terminal, puis :
-   ```powershell
-   fabi
-   ```
-
-### macOS (Apple Silicon)
-
+**macOS, Linux, WSL :**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
 ```
 
-### Linux
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
+**Windows PowerShell :**
+```powershell
+irm https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.ps1 | iex
 ```
 
-Puis, sur toutes les plateformes :
-
-```bash
-fabi
+**Windows CMD :**
+```cmd
+curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
+
+> Si tu vois `The token '&&' is not a valid statement separator`, tu es dans
+> **PowerShell**, pas CMD. Si tu vois `'irm' is not recognized`, tu es dans
+> **CMD**, pas PowerShell. Ton prompt affiche `PS C:\` en PowerShell, et `C:\`
+> sans le `PS` en CMD.
+
+### ⚠️ Windows : WSL requis (une fois)
+
+Sur Windows, Fabi fait tourner son moteur GPU **dans WSL** (l'inférence GPU
+n'existe pas en natif Windows — WSL est la voie officielle pour NVIDIA CUDA).
+Avant la commande ci-dessus, installe WSL dans PowerShell **admin** :
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Redémarre si demandé. *(Pour contribuer en GPU : driver NVIDIA récent — le
+support CUDA-on-WSL est inclus, rien d'autre à installer côté Linux.)*
 
 ---
 
