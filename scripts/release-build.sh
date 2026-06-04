@@ -117,7 +117,9 @@ cd "$FABI_CLI_DIR/packages/opencode"
 #   --single             : build uniquement la plateforme courante (= du runner GitHub)
 #   --skip-embed-web-ui  : on a supprimé packages/app, donc on skip
 #   --skip-install       : skip le bun install cross-platform interne (déjà fait)
-# Le résultat va dans packages/opencode/dist/<name>/bin/opencode.
+# Le résultat va dans packages/opencode/dist/<name>/bin/fabi : depuis le rebrand
+# de fabi-cli, build.ts (const PRODUCT = "fabi") compile directement le binaire
+# sous le nom `fabi` (avant il sortait `opencode` et on le renommait ici).
 rm -rf dist
 bun run script/build.ts --single --skip-embed-web-ui --skip-install
 
@@ -127,16 +129,17 @@ if [ -z "$SRC_BIN_DIR" ]; then
   err "Aucun dossier produit dans packages/opencode/dist/"
   exit 1
 fi
-SRC_BIN_NAME="opencode"
-[[ "$BUN_TARGET" == bun-windows-* ]] && SRC_BIN_NAME="opencode.exe"
+SRC_BIN_NAME="fabi"
+[[ "$BUN_TARGET" == bun-windows-* ]] && SRC_BIN_NAME="fabi.exe"
 SRC_BIN="${SRC_BIN_DIR}bin/${SRC_BIN_NAME}"
 
 if [ ! -x "$SRC_BIN" ]; then
   err "Binaire produit absent : $SRC_BIN"
+  err "  (build.ts doit émettre dist/<target>/bin/fabi — vérifie PRODUCT dans fabi-cli)"
   exit 1
 fi
 
-# Renomme opencode → fabi dans notre tarball
+# Copie le binaire dans le tarball (déjà nommé `fabi` par build.ts)
 OUT_BIN_NAME="fabi"
 [[ "$BUN_TARGET" == bun-windows-* ]] && OUT_BIN_NAME="fabi.exe"
 cp "$SRC_BIN" "$PKG_DIR/bin/$OUT_BIN_NAME"
