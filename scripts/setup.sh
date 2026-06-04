@@ -116,7 +116,12 @@ clone_or_setup() {
 
   if [[ -n "$checkout_ref" ]]; then
     log "$subdir : checkout $checkout_ref"
-    git fetch --all --tags --prune
+    # On ne fetch QUE origin (le fork, qui contient le ref à builder). Le fetch
+    # de upstream (sst/opencode = des milliers de refs/tags, GradientHQ/parallax)
+    # est lourd et fragile en CI — un timeout dessus faisait échouer tout le
+    # release build. On le tente en best-effort, sans jamais bloquer.
+    git fetch origin --tags --prune
+    git fetch upstream --tags --prune 2>/dev/null || true
     if git show-ref --verify --quiet "refs/remotes/origin/$checkout_ref"; then
       git checkout -B "$checkout_ref" "origin/$checkout_ref"
     elif git show-ref --verify --quiet "refs/remotes/upstream/$checkout_ref"; then
