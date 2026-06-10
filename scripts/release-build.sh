@@ -244,10 +244,12 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     FABI_TORCH_SPEC="${FABI_TORCH_SPEC:-torch==2.11.0}"
     FABI_TORCH_INDEX="${FABI_TORCH_INDEX:-https://download.pytorch.org/whl/cu126}"
     WHL_TMP="$(mktemp -d)"
+    # garder le NOM de wheel d'origine : `wheel unpack` le parse (sinon "Bad wheel filename").
+    WHEEL_FILE="$WHL_TMP/$(basename "$FABI_VLLM_WIN_WHEEL")"
     log "Wheel vLLM-Windows : $FABI_VLLM_WIN_WHEEL"
-    curl -fsSL "$FABI_VLLM_WIN_WHEEL" -o "$WHL_TMP/vllm.whl"
+    curl -fsSL "$FABI_VLLM_WIN_WHEEL" -o "$WHEEL_FILE"
     "$VENV_PY" -m pip install --quiet --upgrade wheel
-    "$VENV_PY" -m wheel unpack "$WHL_TMP/vllm.whl" -d "$WHL_TMP/unpacked"
+    "$VENV_PY" -m wheel unpack "$WHEEL_FILE" -d "$WHL_TMP/unpacked"
     META="$(ls "$WHL_TMP"/unpacked/*/*.dist-info/METADATA)"
     sed -i.bak -E 's/^Requires-Dist: torch==.*/Requires-Dist: torch/' "$META" && rm -f "$META.bak"
     UNPACKED_DIR="$(ls -d "$WHL_TMP"/unpacked/*/)"
