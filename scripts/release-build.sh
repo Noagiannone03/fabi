@@ -182,12 +182,15 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   PARALLAX_BUNDLE_DIR="$PKG_DIR/runtime/parallax-src"
   log "(2.5/4) Copie du source Parallax dans le runtime…"
   mkdir -p "$PARALLAX_BUNDLE_DIR"
-  rsync -a \
-    --exclude ".git" \
-    --exclude ".venv" \
-    --exclude "__pycache__" \
-    --exclude "*.pyc" \
-    "$SWARM_ENGINE_DIR/" "$PARALLAX_BUNDLE_DIR/"
+  # tar-pipe plutôt que rsync : rsync n'est PAS disponible sur les runners
+  # Windows (Git Bash). tar est présent partout (macOS / Linux / Windows 10+)
+  # et gère les exclusions de la même façon.
+  ( cd "$SWARM_ENGINE_DIR" && tar \
+      --exclude=".git" \
+      --exclude=".venv" \
+      --exclude="__pycache__" \
+      --exclude="*.pyc" \
+      -cf - . ) | ( cd "$PARALLAX_BUNDLE_DIR" && tar -xf - )
   ok  "Source Parallax embarquée dans runtime/parallax-src/"
 
   # 3. venv + parallax
