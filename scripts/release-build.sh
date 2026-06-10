@@ -203,7 +203,13 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   VENV_PIP="$PKG_DIR/runtime/parallax-venv/bin/pip"
   [[ "$PBS_ARCH" == *windows* ]] && VENV_PIP="$PKG_DIR/runtime/parallax-venv/Scripts/pip.exe"
 
-  "$VENV_PIP" install --upgrade --quiet pip wheel setuptools
+  # Python du venv — on l'utilise via `python -m pip` pour mettre à jour pip :
+  # sur Windows, pip.exe ne peut pas se remplacer lui-même (exe verrouillé pendant
+  # qu'il tourne → "To modify pip, please run ..."). `python -m pip` contourne ça.
+  VENV_PY="$PKG_DIR/runtime/parallax-venv/bin/python"
+  [[ "$PBS_ARCH" == *windows* ]] && VENV_PY="$PKG_DIR/runtime/parallax-venv/Scripts/python.exe"
+
+  "$VENV_PY" -m pip install --upgrade --quiet pip wheel setuptools
 
   # Choix de l'index PyTorch selon l'accélérateur
   EXTRA_PIP_ARGS=()
