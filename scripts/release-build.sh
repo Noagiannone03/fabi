@@ -241,7 +241,9 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     # pour remplacer "torch==<nightly figé>" par "torch" (non contraint), puis on
     # installe un torch STABLE de la même série (2.11.x, compatible ABI). `wheel
     # unpack`/`pack` régénère le RECORD proprement (pas d'édition manuelle bancale).
-    FABI_TORCH_SPEC="${FABI_TORCH_SPEC:-torch==2.11.0}"
+    # torch + torchaudio en lockstep (2.11.0) ; torchvision résolu par pip pour
+    # matcher torch 2.11.0 (il déclare lui-même sa dépendance torch).
+    FABI_TORCH_SPEC="${FABI_TORCH_SPEC:-torch==2.11.0 torchvision torchaudio==2.11.0}"
     FABI_TORCH_INDEX="${FABI_TORCH_INDEX:-https://download.pytorch.org/whl/cu126}"
     WHL_TMP="$(mktemp -d)"
     mkdir -p "$WHL_TMP/unpacked" "$WHL_TMP/repacked"
@@ -252,11 +254,15 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     "$VENV_PY" -m pip install --quiet --upgrade wheel
     "$VENV_PY" -m wheel unpack "$WHEEL_FILE" -d "$WHL_TMP/unpacked"
     META="$(ls "$WHL_TMP"/unpacked/*/*.dist-info/METADATA)"
-    sed -i.bak -E 's/^Requires-Dist: torch==.*/Requires-Dist: torch/' "$META" && rm -f "$META.bak"
+    # relâche les pins figés de torch ET torchvision/torchaudio (même problème de
+    # nightly datée purgée) → on les rend non contraints, puis on installe le trio
+    # stable assorti juste avant.
+    sed -i.bak -E 's/^Requires-Dist: (torch|torchvision|torchaudio)==.*/Requires-Dist: \1/' "$META" && rm -f "$META.bak"
     UNPACKED_DIR="$(ls -d "$WHL_TMP"/unpacked/*/)"
     "$VENV_PY" -m wheel pack "$UNPACKED_DIR" -d "$WHL_TMP/repacked"
     log "Torch stable       : $FABI_TORCH_SPEC ($FABI_TORCH_INDEX)"
-    "$VENV_PIP" install "$FABI_TORCH_SPEC" --extra-index-url "$FABI_TORCH_INDEX"
+    # shellcheck disable=SC2086 -- on veut le word-split (plusieurs paquets)
+    "$VENV_PIP" install $FABI_TORCH_SPEC --extra-index-url "$FABI_TORCH_INDEX"
     "$VENV_PIP" install "$WHL_TMP"/repacked/*.whl --extra-index-url "$FABI_TORCH_INDEX"
     rm -rf "$WHL_TMP"
     if [ -d "$PARALLAX_SPEC" ]; then
