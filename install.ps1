@@ -9,13 +9,13 @@
 #   $env:FABI_INSTALL       Windows shim directory (default: $env:LOCALAPPDATA\fabi)
 #   $env:FABI_REPO          source repo override (default: Noagiannone03/fabi)
 #   $env:FABI_ACCEL         force accelerator (cuda / cpu)
-#   $env:FABI_WINDOWS_MODE  wsl (default) or native
-#   $env:FABI_WSL_DISTRO    optional WSL distro name passed to wsl.exe -d
+#   $env:FABI_WINDOWS_MODE  native (default, no WSL) or wsl (legacy)
+#   $env:FABI_WSL_DISTRO    optional WSL distro name (only when FABI_WINDOWS_MODE=wsl)
 #
-# Native Windows vLLM is not supported upstream. The default Windows path runs
-# the Linux Fabi runtime inside WSL, which is the official vLLM-compatible route
-# for NVIDIA CUDA on Windows. Set FABI_WINDOWS_MODE=native only for testing a
-# windows-*.tar.zst release asset.
+# Windows runs Fabi NATIVELY (no WSL): the GPU engine uses the native-Windows vLLM
+# wheel (SystemPanic, cu124) + mlx-free Parallax, bundled in the windows-x64-cuda
+# release asset. Set FABI_WINDOWS_MODE=wsl only for the legacy path (running the
+# Linux runtime inside WSL).
 
 $ErrorActionPreference = "Stop"
 
@@ -257,7 +257,7 @@ $repo = Get-FabiRepo
 $version = Get-FabiVersion -Repo $repo
 $accel = Get-Accel
 $installRoot = Get-InstallRoot
-$mode = if ($env:FABI_WINDOWS_MODE) { $env:FABI_WINDOWS_MODE.ToLowerInvariant() } else { "wsl" }
+$mode = if ($env:FABI_WINDOWS_MODE) { $env:FABI_WINDOWS_MODE.ToLowerInvariant() } else { "native" }
 
 Write-Log "Repo: $repo"
 Write-Log "Version: $version"
