@@ -349,6 +349,21 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     PATCHED_COUNT=$((PATCHED_COUNT + 1))
   done < <(grep -rlI "$PKG_DIR" "$PKG_DIR/runtime" 2>/dev/null || true)
   ok  "Paths neutralisés dans $PATCHED_COUNT fichiers du venv"
+
+  # 3.6 Allègement du venv — on retire ce qui est INUTILE à l'exécution. Réduit
+  # fortement la taille (le runtime CUDA frôle la limite d'asset GitHub de 2 Gio)
+  # et accélère le download. Rien de tout ça n'est requis pour importer/exécuter :
+  #   - __pycache__ / *.pyc : régénérés au 1er import
+  #   - *.pyi : stubs de typage (dev only)
+  #   - *.lib / *.a : libs statiques de LINK (compilation d'extensions), pas le runtime
+  #   - test / tests : suites de tests des paquets
+  log "(3.6/4) Allègement du venv (caches, stubs, libs statiques, tests)…"
+  VENV_ROOT="$PKG_DIR/runtime/parallax-venv"
+  BEFORE_SZ="$(du -sh "$VENV_ROOT" 2>/dev/null | cut -f1)"
+  find "$VENV_ROOT" -type d -name "__pycache__" -prune -exec rm -rf {} + 2>/dev/null || true
+  find "$VENV_ROOT" -type f \( -name "*.pyc" -o -name "*.pyi" -o -name "*.lib" -o -name "*.a" \) -delete 2>/dev/null || true
+  find "$VENV_ROOT" -type d \( -name "test" -o -name "tests" \) -prune -exec rm -rf {} + 2>/dev/null || true
+  ok  "Venv allégé : $BEFORE_SZ -> $(du -sh "$VENV_ROOT" 2>/dev/null | cut -f1)"
 else
   log "(2-3/4) FABI_SKIP_PARALLAX=1 — runtime Parallax non bundlé"
 fi
