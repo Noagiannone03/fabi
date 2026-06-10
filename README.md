@@ -16,7 +16,7 @@ un gros modèle (Qwen Coder, Llama 3.x, DeepSeek…) réparti entre tous les pee
 > Une seule commande. L'installeur détecte ton OS / GPU, télécharge le bon runtime
 > et ajoute `fabi` à ton `PATH`. Relance ton terminal ensuite, puis lance `fabi`.
 
-**macOS, Linux, WSL :**
+**macOS / Linux :**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.sh | bash
 ```
@@ -36,18 +36,17 @@ curl -fsSL https://raw.githubusercontent.com/Noagiannone03/fabi/main/install.cmd
 > **CMD**, pas PowerShell. Ton prompt affiche `PS C:\` en PowerShell, et `C:\`
 > sans le `PS` en CMD.
 
-### ⚠️ Windows : WSL requis (une fois)
+### Windows : natif, **sans WSL** ✅
 
-Sur Windows, Fabi fait tourner son moteur GPU **dans WSL** (l'inférence GPU
-n'existe pas en natif Windows — WSL est la voie officielle pour NVIDIA CUDA).
-Avant la commande ci-dessus, installe WSL dans PowerShell **admin** :
+Sur Windows + NVIDIA, Fabi tourne **nativement** — plus besoin de WSL, ni de
+redémarrage. Le moteur GPU utilise **vLLM compilé pour Windows** (CUDA 12.4) et
+Parallax en version « mlx-free » ; la commande PowerShell/CMD ci-dessus installe
+tout. La commande s'exécute, et `fabi` est prêt.
 
-```powershell
-wsl --install -d Ubuntu
-```
-
-Redémarre si demandé. *(Pour contribuer en GPU : driver NVIDIA récent — le
-support CUDA-on-WSL est inclus, rien d'autre à installer côté Linux.)*
+*(Pour **contribuer** ton GPU : driver NVIDIA récent + carte RTX 20-series ou plus
+récente. Sans GPU NVIDIA capable tu peux quand même **utiliser** le swarm — la
+consommation passe par HTTP, native sur tous les OS, et ne nécessite aucun moteur
+local.)*
 
 ---
 
@@ -57,7 +56,7 @@ support CUDA-on-WSL est inclus, rien d'autre à installer côté Linux.)*
 |---|---|---|
 | **macOS** | Apple Silicon (MLX) | runtime bundlé dans le tarball |
 | **Linux x64 + NVIDIA** | CUDA | moteur installé au 1ᵉʳ lancement (trop gros pour le tarball) |
-| **Windows + NVIDIA** | CUDA via WSL | exécute le runtime Linux dans WSL |
+| **Windows x64 + NVIDIA** | CUDA **natif** (vLLM-Windows) | runtime installé avec l'app, **sans WSL** |
 | **CPU only** | — | fonctionne mais lent (mode dégradé) |
 
 - **Python 3.10+** est requis pour le worker ; l'installeur le détecte et te guide s'il manque.
@@ -100,8 +99,8 @@ Au lancement, `fabi` te connecte au swarm :
 | `FABI_ACCEL` | forcer l'accélérateur (`cuda` / `mlx` / `cpu`) | auto-détecté |
 | `FABI_INSTALL` | dossier d'install | `~/.local/share/fabi` (Win : `%LOCALAPPDATA%\fabi`) |
 | `FABI_NO_PATH` | `1` = ne pas toucher au PATH | — |
-| `FABI_WINDOWS_MODE` | `wsl` (défaut) ou `native` (test only) | `wsl` |
-| `FABI_WSL_DISTRO` | distro WSL à utiliser | distro par défaut |
+| `FABI_WINDOWS_MODE` | `native` (défaut, sans WSL) ou `wsl` (legacy) | `native` |
+| `FABI_WSL_DISTRO` | distro WSL (uniquement si `FABI_WINDOWS_MODE=wsl`) | distro par défaut |
 
 Exemple (forcer CPU) :
 ```bash

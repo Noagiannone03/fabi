@@ -63,7 +63,15 @@ TARBALL="$DIST/${PKG_NAME}.tar.zst"
 
 VERSION="${FABI_VERSION:-$(cat "$ROOT/VERSION" 2>/dev/null || echo "v0.0.0-dev")}"
 PYTHON_BUILD_TAG="${PYTHON_BUILD_TAG:-20241016}"
-PYTHON_VERSION="3.11.10"
+# Windows natif utilise les wheels vLLM-Windows (SystemPanic), compilés pour
+# CPython 3.12 (cp312) → le Python embarqué DOIT être 3.12 sur Windows. Un wheel
+# ne s'installe que sur la version exacte de Python pour laquelle il est compilé.
+# Mac/Linux restent en 3.11 (inchangé).
+if [[ "$PBS_ARCH" == *windows* ]]; then
+  PYTHON_VERSION="3.12.7"
+else
+  PYTHON_VERSION="3.11.10"
+fi
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -209,36 +217,56 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   esac
 
   PARALLAX_SPEC="${PARALLAX_SOURCE:-$PARALLAX_BUNDLE_DIR}"
-  PARALLAX_EXTRA="${PARALLAX_EXTRA:-}"
-  if [ -z "$PARALLAX_EXTRA" ]; then
-    case "$ACCEL" in
-      mlx)
-        PARALLAX_EXTRA="mac"
-        ;;
-      cuda)
-        PARALLAX_EXTRA="gpu"
-        ;;
-      rocm)
-        PARALLAX_EXTRA="vllm"
-        ;;
-      cpu)
-        PARALLAX_EXTRA=""
-        ;;
-    esac
-  fi
 
-  PARALLAX_INSTALL_SPEC="$PARALLAX_SPEC"
-  if [ -n "$PARALLAX_EXTRA" ]; then
-    PARALLAX_INSTALL_SPEC="${PARALLAX_SPEC}[${PARALLAX_EXTRA}]"
-  fi
-
-  if [ -d "$PARALLAX_SPEC" ]; then
-    "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" -e "$PARALLAX_INSTALL_SPEC"
+  if [[ "$PBS_ARCH" == *windows* ]]; then
+    # --- Windows natif (NVIDIA) : wheel vLLM-Windows + Parallax CORE (sans mlx) ---
+    # mlx n'a AUCUN build Windows. Le chemin vLLM de Parallax est désormais mlx-free
+    # (cf. swarm-engine, branche fabi-patches, commit "decouple ... from mlx") : on
+    # installe donc Parallax SANS les extras mac/gpu/vllm (qui tirent tous mlx), et on
+    # ajoute à part le wheel vLLM compilé nativement pour Windows par SystemPanic.
+    # CUDA 12.4 (cu124) = compatibilité driver maximale (la grande majorité des PC).
+    FABI_VLLM_WIN_WHEEL="${FABI_VLLM_WIN_WHEEL:-https://github.com/SystemPanic/vllm-windows/releases/download/v0.16.0/vllm-0.16.0+cu124-cp312-cp312-win_amd64.whl}"
+    log "Wheel vLLM-Windows : $FABI_VLLM_WIN_WHEEL"
+    "$VENV_PIP" install "$FABI_VLLM_WIN_WHEEL" --extra-index-url "https://download.pytorch.org/whl/cu124"
+    if [ -d "$PARALLAX_SPEC" ]; then
+      "$VENV_PIP" install -e "$PARALLAX_SPEC"
+    else
+      "$VENV_PIP" install "$PARALLAX_SPEC"
+    fi
+    "$VENV_PIP" install --quiet requests
+    ok  "Parallax (core, mlx-free) + vLLM natif Windows installés"
   else
-    "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" "$PARALLAX_INSTALL_SPEC"
+    PARALLAX_EXTRA="${PARALLAX_EXTRA:-}"
+    if [ -z "$PARALLAX_EXTRA" ]; then
+      case "$ACCEL" in
+        mlx)
+          PARALLAX_EXTRA="mac"
+          ;;
+        cuda)
+          PARALLAX_EXTRA="gpu"
+          ;;
+        rocm)
+          PARALLAX_EXTRA="vllm"
+          ;;
+        cpu)
+          PARALLAX_EXTRA=""
+          ;;
+      esac
+    fi
+
+    PARALLAX_INSTALL_SPEC="$PARALLAX_SPEC"
+    if [ -n "$PARALLAX_EXTRA" ]; then
+      PARALLAX_INSTALL_SPEC="${PARALLAX_SPEC}[${PARALLAX_EXTRA}]"
+    fi
+
+    if [ -d "$PARALLAX_SPEC" ]; then
+      "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" -e "$PARALLAX_INSTALL_SPEC"
+    else
+      "$VENV_PIP" install "${EXTRA_PIP_ARGS[@]}" "$PARALLAX_INSTALL_SPEC"
+    fi
+    "$VENV_PIP" install --quiet requests
+    ok  "Parallax installé"
   fi
-  "$VENV_PIP" install --quiet requests
-  ok  "Parallax installé"
 
   # Rendre les symlinks Python du venv relocatables.
   #

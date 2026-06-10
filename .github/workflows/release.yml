@@ -63,14 +63,15 @@ jobs:
             pbs_arch: x86_64-apple-darwin
             accel: cpu
 
-          # Windows x64 — placeholder, à activer quand python-build-standalone
-          # est testé sur ce target. Désactivé pour l'instant car Bun + venv
-          # ont des subtilités Windows (paths, .exe, scripts/Scripts).
-          # - tag: windows-x64-cpu
-          #   os: windows-latest
-          #   bun_target: bun-windows-x64
-          #   pbs_arch: x86_64-pc-windows-msvc
-          #   accel: cpu
+          # Windows x64 NVIDIA — NATIF, sans WSL. Parallax y contribue via le wheel
+          # vLLM-Windows (SystemPanic, cu124 / cp312) + Parallax core "mlx-free".
+          # Validé bout-en-bout sur GPU : un worker mlx-absent a chargé Qwen3-1.7B et
+          # servi dans le vrai swarm (cf. swarm-engine fabi-patches).
+          - tag: windows-x64-cuda
+            os: windows-latest
+            bun_target: bun-windows-x64
+            pbs_arch: x86_64-pc-windows-msvc
+            accel: cuda
 
     runs-on: ${{ matrix.platform.os }}
     steps:
@@ -110,10 +111,12 @@ jobs:
       - name: Build tarball
         env:
           FABI_VERSION: ${{ github.ref_name }}
-          # GitHub Releases refuse les assets >2 GB. Le runtime CUDA complet
-          # dépasse cette limite, donc le tarball CUDA embarque seulement Fabi ;
-          # Parallax sera installé au premier lancement via l'installer interactif.
-          FABI_SKIP_PARALLAX: ${{ matrix.platform.accel == 'cuda' && '1' || '' }}
+          # GitHub Releases refuse les assets >2 GB. Le runtime Linux-CUDA complet
+          # dépasse cette limite → son tarball n'embarque que Fabi (Parallax installé
+          # au 1er lancement). Sur Windows on bundle le runtime (wheel vLLM-Windows +
+          # Parallax core mlx-free) pour une app autonome. Si l'artefact Windows
+          # dépasse 2 GB, passer ce flag à '1' pour windows-latest aussi.
+          FABI_SKIP_PARALLAX: ${{ (matrix.platform.accel == 'cuda' && matrix.platform.os != 'windows-latest') && '1' || '' }}
         run: |
           chmod +x scripts/release-build.sh
           ./scripts/release-build.sh \
