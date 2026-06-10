@@ -235,17 +235,27 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     # ajoute à part le wheel vLLM compilé nativement pour Windows par SystemPanic.
     # CUDA 12.4 (cu124) = compatibilité driver maximale (la grande majorité des PC).
     FABI_VLLM_WIN_WHEEL="${FABI_VLLM_WIN_WHEEL:-https://github.com/SystemPanic/vllm-windows/releases/download/v0.16.0/vllm-0.16.0+cu124-cp312-cp312-win_amd64.whl}"
-    # Les wheels vLLM-Windows (0.16/0.17/0.19) épinglent un torch NIGHTLY cu126
-    # (ex. torch==2.11.0.dev*+cu126) → il faut l'index nightly cu126, pas l'index
-    # stable. C'est la commande d'install officielle de SystemPanic.
-    # ⚠️ Robustesse prod : une nightly datée peut être purgée de l'index avec le
-    # temps. À terme, miroiter le wheel torch (asset de release) ou viser une
-    # version vLLM-Windows épinglée sur un torch stable. Surchargeable via
-    # FABI_TORCH_INDEX.
-    FABI_TORCH_INDEX="${FABI_TORCH_INDEX:-https://download.pytorch.org/whl/nightly/cu126}"
+    # Les wheels SystemPanic épinglent un torch NIGHTLY DATÉ (ex.
+    # torch==2.11.0.dev20260216+cu126) qui finit PURGÉ de l'index pytorch → install
+    # non reproductible dans le temps. On RELÂCHE donc ce pin : on repacke le wheel
+    # pour remplacer "torch==<nightly figé>" par "torch" (non contraint), puis on
+    # installe un torch STABLE de la même série (2.11.x, compatible ABI). `wheel
+    # unpack`/`pack` régénère le RECORD proprement (pas d'édition manuelle bancale).
+    FABI_TORCH_SPEC="${FABI_TORCH_SPEC:-torch==2.11.0}"
+    FABI_TORCH_INDEX="${FABI_TORCH_INDEX:-https://download.pytorch.org/whl/cu126}"
+    WHL_TMP="$(mktemp -d)"
     log "Wheel vLLM-Windows : $FABI_VLLM_WIN_WHEEL"
-    log "Index torch        : $FABI_TORCH_INDEX"
-    "$VENV_PIP" install "$FABI_VLLM_WIN_WHEEL" --extra-index-url "$FABI_TORCH_INDEX"
+    curl -fsSL "$FABI_VLLM_WIN_WHEEL" -o "$WHL_TMP/vllm.whl"
+    "$VENV_PY" -m pip install --quiet --upgrade wheel
+    "$VENV_PY" -m wheel unpack "$WHL_TMP/vllm.whl" -d "$WHL_TMP/unpacked"
+    META="$(ls "$WHL_TMP"/unpacked/*/*.dist-info/METADATA)"
+    sed -i.bak -E 's/^Requires-Dist: torch==.*/Requires-Dist: torch/' "$META" && rm -f "$META.bak"
+    UNPACKED_DIR="$(ls -d "$WHL_TMP"/unpacked/*/)"
+    "$VENV_PY" -m wheel pack "$UNPACKED_DIR" -d "$WHL_TMP/repacked"
+    log "Torch stable       : $FABI_TORCH_SPEC ($FABI_TORCH_INDEX)"
+    "$VENV_PIP" install "$FABI_TORCH_SPEC" --extra-index-url "$FABI_TORCH_INDEX"
+    "$VENV_PIP" install "$WHL_TMP"/repacked/*.whl --extra-index-url "$FABI_TORCH_INDEX"
+    rm -rf "$WHL_TMP"
     if [ -d "$PARALLAX_SPEC" ]; then
       "$VENV_PIP" install -e "$PARALLAX_SPEC"
     else
