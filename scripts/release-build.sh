@@ -244,6 +244,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     FABI_TORCH_SPEC="${FABI_TORCH_SPEC:-torch==2.11.0}"
     FABI_TORCH_INDEX="${FABI_TORCH_INDEX:-https://download.pytorch.org/whl/cu126}"
     WHL_TMP="$(mktemp -d)"
+    mkdir -p "$WHL_TMP/unpacked" "$WHL_TMP/repacked"
     # garder le NOM de wheel d'origine : `wheel unpack` le parse (sinon "Bad wheel filename").
     WHEEL_FILE="$WHL_TMP/$(basename "$FABI_VLLM_WIN_WHEEL")"
     log "Wheel vLLM-Windows : $FABI_VLLM_WIN_WHEEL"
