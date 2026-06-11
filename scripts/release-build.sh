@@ -385,8 +385,25 @@ tar --use-compress-program='zstd -19 -T0 --long=27' -cf "$TARBALL" "$(basename "
 # Cleanup du dossier décompressé (on garde juste le tarball)
 rm -rf "$PKG_DIR"
 
-# Hash SHA256 pour vérification install.sh
+# Hash SHA256 du tarball ENTIER (vérifié par l'installeur après réassemblage).
 sha256sum "$TARBALL" > "${TARBALL}.sha256" 2>/dev/null || shasum -a 256 "$TARBALL" > "${TARBALL}.sha256"
 
 ok "Tarball : $TARBALL ($(du -h "$TARBALL" | cut -f1))"
 ok "SHA256  : ${TARBALL}.sha256"
+
+# 4.5 Découpage si le tarball dépasse la limite d'asset GitHub (2 Gio).
+# ----------------------------------------------------------------------------
+# Un runtime CUDA peut dépasser 2 Gio compressé. GitHub refuse alors l'asset.
+# Pratique standard : découper en parties < 2 Gio, que l'installeur réassemble
+# (cat) avant extraction. On publie alors les `.part??` + un manifeste `.parts`
+# (sa présence signale à l'installeur que l'asset est splitté) + le `.sha256`
+# du tout (vérifié après réassemblage). Les petits tarballs restent en 1 fichier.
+SPLIT_THRESHOLD_BYTES=$(( 1900 * 1024 * 1024 ))   # 1900 Mio (marge sous 2 Gio)
+TARBALL_BYTES=$(wc -c < "$TARBALL" | tr -d ' ')
+if [ "$TARBALL_BYTES" -gt "$SPLIT_THRESHOLD_BYTES" ]; then
+  log "Tarball > 1900 Mio → découpage en parties (limite asset GitHub = 2 Gio)…"
+  split -b 1800m "$TARBALL" "${TARBALL}.part"
+  ( cd "$DIST" && ls "$(basename "$TARBALL")".part?? | LC_ALL=C sort > "$(basename "$TARBALL").parts" )
+  rm -f "$TARBALL"   # le tout dépasse 2 Gio : on ne publie que les parties
+  ok "Découpé en : $(tr '\n' ' ' < "${TARBALL}.parts")"
+fi

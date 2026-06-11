@@ -132,11 +132,31 @@ BIN_DIR="${FABI_BIN_DIR:-$HOME/.local/bin}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-log "Téléchargement : ${C_DIM}${TARBALL_URL}${C_RESET}"
-if ! curl -fL --progress-bar "$TARBALL_URL" -o "$TMP_DIR/fabi.tar.zst"; then
-  err "Échec du téléchargement. Vérifie l'URL et que la release publie bien ce tarball pour ta plateforme."
-  err "  → $TARBALL_URL"
-  exit 1
+# Asset splitté ? release-build.sh publie un manifeste `.parts` quand le tarball
+# dépasse 2 Gio (limite GitHub) → on télécharge les parties et on réassemble (cat).
+# Sinon, téléchargement direct du tarball unique (cas des petites plateformes).
+DL_BASE="https://github.com/${FABI_REPO}/releases/download/${FABI_VERSION}"
+if curl -fsSL "${TARBALL_URL}.parts" -o "$TMP_DIR/parts.txt" 2>/dev/null; then
+  log "Asset volumineux → téléchargement en parties + réassemblage…"
+  : > "$TMP_DIR/fabi.tar.zst"
+  while IFS= read -r part; do
+    part="$(printf '%s' "$part" | tr -d '\r' | tr -d ' ')"
+    [ -z "$part" ] && continue
+    log "  partie : ${C_DIM}${part}${C_RESET}"
+    if ! curl -fL --progress-bar "${DL_BASE}/${part}" -o "$TMP_DIR/part"; then
+      err "Échec du téléchargement de la partie : ${DL_BASE}/${part}"
+      exit 1
+    fi
+    cat "$TMP_DIR/part" >> "$TMP_DIR/fabi.tar.zst"
+    rm -f "$TMP_DIR/part"
+  done < "$TMP_DIR/parts.txt"
+else
+  log "Téléchargement : ${C_DIM}${TARBALL_URL}${C_RESET}"
+  if ! curl -fL --progress-bar "$TARBALL_URL" -o "$TMP_DIR/fabi.tar.zst"; then
+    err "Échec du téléchargement. Vérifie l'URL et que la release publie bien ce tarball pour ta plateforme."
+    err "  → $TARBALL_URL"
+    exit 1
+  fi
 fi
 
 # Vérification SHA256 (best effort — on warn si le .sha256 est absent)

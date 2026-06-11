@@ -202,8 +202,32 @@ function Install-NativeFabi {
     $tmpDir = New-Item -Type Directory -Path (Join-Path $env:TEMP "fabi-install-$([guid]::NewGuid().ToString())")
     try {
         $tarballPath = Join-Path $tmpDir "fabi.tar.zst"
-        Write-Log "Telechargement : $tarballUrl"
-        Invoke-WebRequest -Uri $tarballUrl -OutFile $tarballPath -UseBasicParsing
+        $dlBase = "https://github.com/${Repo}/releases/download/${Version}"
+        # Asset splitte ? release-build.sh publie un manifeste .parts quand le
+        # tarball depasse 2 Go (limite GitHub) -> on telecharge les parties et on
+        # reassemble (concatenation binaire). Sinon, telechargement direct.
+        $partsTxt = Join-Path $tmpDir "parts.txt"
+        $isSplit = $true
+        try { Invoke-WebRequest -Uri "$tarballUrl.parts" -OutFile $partsTxt -UseBasicParsing -ErrorAction Stop } catch { $isSplit = $false }
+        if ($isSplit) {
+            Write-Log "Asset volumineux -> telechargement en parties + reassemblage..."
+            $out = [System.IO.File]::Open($tarballPath, [System.IO.FileMode]::Create)
+            try {
+                foreach ($line in (Get-Content $partsTxt)) {
+                    $part = $line.Trim()
+                    if (-not $part) { continue }
+                    $partPath = Join-Path $tmpDir $part
+                    Write-Log "  partie : $part"
+                    Invoke-WebRequest -Uri "$dlBase/$part" -OutFile $partPath -UseBasicParsing
+                    $in = [System.IO.File]::OpenRead($partPath)
+                    try { $in.CopyTo($out) } finally { $in.Close() }
+                    Remove-Item $partPath -Force
+                }
+            } finally { $out.Close() }
+        } else {
+            Write-Log "Telechargement : $tarballUrl"
+            Invoke-WebRequest -Uri $tarballUrl -OutFile $tarballPath -UseBasicParsing
+        }
 
         try {
             $expected = (Invoke-WebRequest -Uri $shaUrl -UseBasicParsing).Content.Trim().Split()[0]

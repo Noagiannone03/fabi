@@ -136,9 +136,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          # Glob : prend le tarball + .sha256 (petites plateformes) OU les .part??
+          # + .parts + .sha256 (plateformes splittées >2 Gio). Voir release-build.sh.
           files: |
-            dist/fabi-${{ matrix.platform.tag }}.tar.zst
-            dist/fabi-${{ matrix.platform.tag }}.tar.zst.sha256
+            dist/fabi-${{ matrix.platform.tag }}.tar.zst*
           # Si le tag est une pre-release (ex: v0.1.0-rc1) → marqué pre-release
           prerelease: ${{ contains(github.ref_name, '-') }}
           # On ne publie pas tout de suite, on assemble la release au fil des jobs
