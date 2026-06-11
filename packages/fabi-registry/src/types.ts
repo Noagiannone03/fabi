@@ -38,6 +38,25 @@ export interface SwarmEntry {
   /** Somme des VRAM annoncées par les peers, en GB. */
   totalVramGb: number
 
+  // --- État riche d'orchestration (lu au scan, fan-out via SSE) ---
+  // Permet aux clients (IDE/CLI) d'afficher un écran de connexion fidèle SANS
+  // poller le scheduler eux-mêmes : un seul scan registry → tous les clients.
+
+  /** Le scheduler attend encore des nœuds pour bootstrapper le pipeline. */
+  needMoreNodes?: boolean
+
+  /** Seuil minimal de nœuds pour démarrer le bootstrap. */
+  initNodesNum?: number
+
+  /** Dernier résultat de bootstrap : 'pending'|'success'|'failed_capacity'|'deferred_not_enough_nodes'. */
+  lastBootstrapResult?: string | null
+
+  /** Nœuds actifs dans le pipeline (node_state === 'active'). */
+  nodesActive?: number
+
+  /** Nœuds encore en initialisation (loading_phase joining/initializing). */
+  nodesInitializing?: number
+
   /** Date ISO du dernier scan. */
   lastSeen: string
 

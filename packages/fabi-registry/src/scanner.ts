@@ -30,6 +30,11 @@ interface SchedulerStatus {
   applicationStatus: string | null
   peers: number
   totalVramGb: number
+  needMoreNodes?: boolean
+  initNodesNum?: number
+  lastBootstrapResult?: string | null
+  nodesActive?: number
+  nodesInitializing?: number
 }
 
 export class SwarmScanner {
@@ -258,6 +263,11 @@ export class SwarmScanner {
       schedulerStatus: health.applicationStatus,
       peers: health.peers,
       totalVramGb: health.totalVramGb,
+      needMoreNodes: health.needMoreNodes,
+      initNodesNum: health.initNodesNum,
+      lastBootstrapResult: health.lastBootstrapResult,
+      nodesActive: health.nodesActive,
+      nodesInitializing: health.nodesInitializing,
       lastSeen: new Date().toISOString(),
       containerName: container.name,
     }
@@ -279,7 +289,10 @@ export class SwarmScanner {
       const json = (await res.json()) as {
         data?: {
           status?: string
-          node_list?: Array<{ gpu_memory?: number }>
+          need_more_nodes?: boolean
+          init_nodes_num?: number
+          last_bootstrap_result?: string | null
+          node_list?: Array<{ gpu_memory?: number; node_state?: string; loading_phase?: string }>
         }
       }
       const data = json.data ?? {}
@@ -288,11 +301,20 @@ export class SwarmScanner {
         (acc, n) => acc + (typeof n.gpu_memory === "number" ? n.gpu_memory : 0),
         0,
       )
+      const nodesActive = nodeList.filter((n) => n.node_state === "active").length
+      const nodesInitializing = nodeList.filter(
+        (n) => n.loading_phase === "initializing" || n.loading_phase === "joining",
+      ).length
       return {
         online: true,
         applicationStatus: data.status ?? null,
         peers: nodeList.length,
         totalVramGb: Math.round(totalVramGb * 10) / 10,
+        needMoreNodes: data.need_more_nodes,
+        initNodesNum: data.init_nodes_num,
+        lastBootstrapResult: data.last_bootstrap_result ?? null,
+        nodesActive,
+        nodesInitializing,
       }
     } catch {
       return { online: false, applicationStatus: null, peers: 0, totalVramGb: 0 }
