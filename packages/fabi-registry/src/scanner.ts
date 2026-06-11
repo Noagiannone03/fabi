@@ -66,6 +66,12 @@ export class SwarmScanner {
   private firstScanComplete: Promise<void>
   private resolveFirstScan!: () => void
 
+  /** Abonnés SSE (server.ts) + dernier snapshot émis (pour ne pousser que sur
+   * CHANGEMENT). Pattern "1 poll interne → N clients" : le scan existant (10s)
+   * pousse à tous les abonnés, au lieu que chaque client poll de son côté. */
+  private subscribers: Set<(swarms: SwarmEntry[]) => void> = new Set()
+  private lastSnapshotJson = ""
+
   constructor(docker: DockerClient, opts: ScannerOptions = {}) {
     this.docker = docker
     // 10s : assez réactif pour qu'un join/leave soit visible en moins d'un
@@ -83,6 +89,34 @@ export class SwarmScanner {
   /** Snapshot synchrone du cache (à appeler depuis le serveur HTTP). */
   snapshot(): SwarmEntry[] {
     return Array.from(this.cache.values()).sort((a, b) => a.id.localeCompare(b.id))
+  }
+
+  /** Abonne un client SSE. Émet le snapshot courant immédiatement, puis à chaque
+   * changement. Renvoie une fonction de désabonnement (à appeler au disconnect). */
+  subscribe(cb: (swarms: SwarmEntry[]) => void): () => void {
+    this.subscribers.add(cb)
+    try {
+      cb(this.snapshot())
+    } catch {
+      /* un abonné qui throw ne doit pas casser l'abonnement */
+    }
+    return () => this.subscribers.delete(cb)
+  }
+
+  /** Pousse le snapshot aux abonnés UNIQUEMENT s'il a changé (anti-bruit). */
+  private broadcast(): void {
+    if (this.subscribers.size === 0) return
+    const snap = this.snapshot()
+    const json = JSON.stringify(snap)
+    if (json === this.lastSnapshotJson) return
+    this.lastSnapshotJson = json
+    for (const cb of this.subscribers) {
+      try {
+        cb(snap)
+      } catch {
+        /* idem : on isole les abonnés défaillants */
+      }
+    }
   }
 
   /** Promesse qui résout après le tout premier scan. Utile au démarrage. */
@@ -158,6 +192,8 @@ export class SwarmScanner {
         this.peerIdByContainerId.delete(cachedContainerId)
       }
     }
+    // Pousse aux abonnés SSE si l'état a changé (join/leave/peer count/status).
+    this.broadcast()
   }
 
   // ---------------------------------------------------------------------------
