@@ -57,6 +57,24 @@ export interface SwarmEntry {
   /** Nœuds encore en initialisation (loading_phase joining/initializing). */
   nodesInitializing?: number
 
+  /** Nombre total de routes/pipelines connues par le scheduler. */
+  pipelineCount?: number
+
+  /** Nombre de routes/pipelines réellement prêtes à servir. */
+  pipelineReadyCount?: number
+
+  /** True uniquement si au moins un pipeline est prêt côté scheduler. */
+  pipelineReady?: boolean
+
+  /** True si la table de routage est construite et utilisable. */
+  routingReady?: boolean
+
+  /** Capacité totale annoncée par les pipelines prêts. */
+  pipelineCapacityTotal?: number
+
+  /** Requêtes actuellement en cours sur les pipelines prêts. */
+  pipelineCapacityCurrent?: number
+
   /** Date ISO du dernier scan. */
   lastSeen: string
 

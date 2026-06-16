@@ -35,6 +35,12 @@ interface SchedulerStatus {
   lastBootstrapResult?: string | null
   nodesActive?: number
   nodesInitializing?: number
+  pipelineCount?: number
+  pipelineReadyCount?: number
+  pipelineReady?: boolean
+  routingReady?: boolean
+  pipelineCapacityTotal?: number
+  pipelineCapacityCurrent?: number
 }
 
 export class SwarmScanner {
@@ -268,6 +274,12 @@ export class SwarmScanner {
       lastBootstrapResult: health.lastBootstrapResult,
       nodesActive: health.nodesActive,
       nodesInitializing: health.nodesInitializing,
+      pipelineCount: health.pipelineCount,
+      pipelineReadyCount: health.pipelineReadyCount,
+      pipelineReady: health.pipelineReady,
+      routingReady: health.routingReady,
+      pipelineCapacityTotal: health.pipelineCapacityTotal,
+      pipelineCapacityCurrent: health.pipelineCapacityCurrent,
       lastSeen: new Date().toISOString(),
       containerName: container.name,
     }
@@ -292,6 +304,12 @@ export class SwarmScanner {
           need_more_nodes?: boolean
           init_nodes_num?: number
           last_bootstrap_result?: string | null
+          pipeline_count?: number
+          pipeline_ready_count?: number
+          pipeline_ready?: boolean
+          routing_ready?: boolean
+          pipeline_capacity_total?: number
+          pipeline_capacity_current?: number
           node_list?: Array<{ gpu_memory?: number; node_state?: string; loading_phase?: string }>
         }
       }
@@ -315,6 +333,12 @@ export class SwarmScanner {
         lastBootstrapResult: data.last_bootstrap_result ?? null,
         nodesActive,
         nodesInitializing,
+        pipelineCount: data.pipeline_count,
+        pipelineReadyCount: data.pipeline_ready_count,
+        pipelineReady: data.pipeline_ready,
+        routingReady: data.routing_ready,
+        pipelineCapacityTotal: data.pipeline_capacity_total,
+        pipelineCapacityCurrent: data.pipeline_capacity_current,
       }
     } catch {
       return { online: false, applicationStatus: null, peers: 0, totalVramGb: 0 }
