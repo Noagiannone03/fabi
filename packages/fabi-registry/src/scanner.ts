@@ -30,6 +30,7 @@ interface SchedulerStatus {
   applicationStatus: string | null
   peers: number
   totalVramGb: number
+  maxContextTokens?: number
   needMoreNodes?: boolean
   initNodesNum?: number
   lastBootstrapResult?: string | null
@@ -269,6 +270,7 @@ export class SwarmScanner {
       schedulerStatus: health.applicationStatus,
       peers: health.peers,
       totalVramGb: health.totalVramGb,
+      maxContextTokens: health.maxContextTokens,
       needMoreNodes: health.needMoreNodes,
       initNodesNum: health.initNodesNum,
       lastBootstrapResult: health.lastBootstrapResult,
@@ -310,6 +312,7 @@ export class SwarmScanner {
           routing_ready?: boolean
           pipeline_capacity_total?: number
           pipeline_capacity_current?: number
+          max_context_tokens?: number
           node_list?: Array<{ gpu_memory?: number; node_state?: string; loading_phase?: string }>
         }
       }
@@ -328,6 +331,7 @@ export class SwarmScanner {
         applicationStatus: data.status ?? null,
         peers: nodeList.length,
         totalVramGb: Math.round(totalVramGb * 10) / 10,
+        maxContextTokens: data.max_context_tokens,
         needMoreNodes: data.need_more_nodes,
         initNodesNum: data.init_nodes_num,
         lastBootstrapResult: data.last_bootstrap_result ?? null,

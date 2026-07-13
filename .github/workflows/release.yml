@@ -66,7 +66,7 @@ jobs:
           # Windows x64 NVIDIA — NATIF, sans WSL. Parallax y contribue via le wheel
           # vLLM-Windows (SystemPanic, cu124 / cp312) + Parallax core "mlx-free".
           # Validé bout-en-bout sur GPU : un worker mlx-absent a chargé Qwen3-1.7B et
-          # servi dans le vrai swarm (cf. swarm-engine fabi-patches).
+          # servi dans le vrai swarm (cf. branche swarm-engine production).
           - tag: windows-x64-cuda
             os: windows-latest
             bun_target: bun-windows-x64
@@ -100,7 +100,7 @@ jobs:
           OPENCODE_FORK_REMOTE: ${{ vars.OPENCODE_FORK_REMOTE || 'https://github.com/Noagiannone03/fabi-cli.git' }}
           OPENCODE_REF: ${{ vars.OPENCODE_REF || 'dev' }}
           PARALLAX_FORK_REMOTE: ${{ vars.PARALLAX_FORK_REMOTE || 'https://github.com/Noagiannone03/swarm-engine.git' }}
-          PARALLAX_REF: ${{ vars.PARALLAX_REF || 'fabi-patches' }}
+          PARALLAX_REF: ${{ vars.PARALLAX_REF || 'production' }}
           OPENCODE_UPSTREAM: https://github.com/sst/opencode.git
           PARALLAX_UPSTREAM: https://github.com/GradientHQ/parallax.git
         run: |

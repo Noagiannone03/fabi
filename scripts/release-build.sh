@@ -10,7 +10,7 @@
 # Le tarball final ressemble à :
 #   fabi/
 #   ├── bin/fabi                     ← binaire natif (50 MB)
-#   ├── runtime/python/              ← Python 3.11 standalone
+#   ├── runtime/python/              ← Python 3.12 standalone
 #   └── runtime/parallax-venv/       ← venv avec parallax + ses deps (PyTorch...)
 #
 # Usage :
@@ -63,15 +63,11 @@ TARBALL="$DIST/${PKG_NAME}.tar.zst"
 
 VERSION="${FABI_VERSION:-$(cat "$ROOT/VERSION" 2>/dev/null || echo "v0.0.0-dev")}"
 PYTHON_BUILD_TAG="${PYTHON_BUILD_TAG:-20241016}"
-# Windows natif utilise les wheels vLLM-Windows (SystemPanic), compilés pour
-# CPython 3.12 (cp312) → le Python embarqué DOIT être 3.12 sur Windows. Un wheel
-# ne s'installe que sur la version exacte de Python pour laquelle il est compilé.
-# Mac/Linux restent en 3.11 (inchangé).
-if [[ "$PBS_ARCH" == *windows* ]]; then
-  PYTHON_VERSION="3.12.7"
-else
-  PYTHON_VERSION="3.11.10"
-fi
+# Parallax publie désormais ses kernels Metal avec l'ABI CPython 3.12 et le
+# wheel vLLM-Windows est lui aussi cp312. Une seule version sur toutes les
+# plateformes évite qu'un runtime Fabi accepte le code Python mais échoue au
+# premier import natif (`_ext.cpython-311` absent).
+PYTHON_VERSION="3.12.7"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -230,7 +226,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   if [[ "$PBS_ARCH" == *windows* ]]; then
     # --- Windows natif (NVIDIA) : wheel vLLM-Windows + Parallax CORE (sans mlx) ---
     # mlx n'a AUCUN build Windows. Le chemin vLLM de Parallax est désormais mlx-free
-    # (cf. swarm-engine, branche fabi-patches, commit "decouple ... from mlx") : on
+    # (cf. swarm-engine, branche production, commit "decouple ... from mlx") : on
     # installe donc Parallax SANS les extras mac/gpu/vllm (qui tirent tous mlx), et on
     # ajoute à part le wheel vLLM compilé nativement pour Windows par SystemPanic.
     # CUDA 12.4 (cu124) = compatibilité driver maximale (la grande majorité des PC).
@@ -316,7 +312,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     VENV_BIN="$PKG_DIR/runtime/parallax-venv/bin"
     ln -sf "../../python-base/bin/python3" "$VENV_BIN/python3"
     ln -sf "python3" "$VENV_BIN/python"
-    ln -sf "python3" "$VENV_BIN/python3.11"
+    ln -sf "python3" "$VENV_BIN/python3.12"
   fi
 
   # Vérification : le binaire parallax doit exister dans le venv

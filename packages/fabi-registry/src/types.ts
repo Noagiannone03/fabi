@@ -38,6 +38,9 @@ export interface SwarmEntry {
   /** Somme des VRAM annoncées par les peers, en GB. */
   totalVramGb: number
 
+  /** Fenêtre maximale (prompt + génération) d'une route complète à swarm idle. */
+  maxContextTokens?: number
+
   // --- État riche d'orchestration (lu au scan, fan-out via SSE) ---
   // Permet aux clients (IDE/CLI) d'afficher un écran de connexion fidèle SANS
   // poller le scheduler eux-mêmes : un seul scan registry → tous les clients.
