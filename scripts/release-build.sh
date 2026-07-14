@@ -372,6 +372,8 @@ target=$BUN_TARGET
 arch=$PBS_ARCH
 accel=$ACCEL
 python=$PYTHON_VERSION
+opencode_revision=$(git -C "$FABI_CLI_DIR" rev-parse HEAD)
+parallax_revision=$(git -C "$SWARM_ENGINE_DIR" rev-parse HEAD)
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 
