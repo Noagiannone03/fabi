@@ -110,8 +110,10 @@ function Install-WslFabi {
         "export FABI_REPO=$(Quote-Bash $Repo)"
         "export FABI_ACCEL=$(Quote-Bash $Accel)"
         "export FABI_PARALLAX_EXTRA=$(Quote-Bash $(if ($Accel -eq 'cuda') { 'gpu' } else { '' }))"
-        "export FABI_PARALLAX_REF=$(Quote-Bash $(if ($env:FABI_PARALLAX_REF) { $env:FABI_PARALLAX_REF } else { 'fabi-patches' }))"
     )
+    if ($env:FABI_PARALLAX_REF) {
+        $bash += "export FABI_PARALLAX_REF=$(Quote-Bash $env:FABI_PARALLAX_REF)"
+    }
     if ($Version -ne "latest") {
         $bash += "export FABI_VERSION=$(Quote-Bash $Version)"
     }
