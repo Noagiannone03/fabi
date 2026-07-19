@@ -81,7 +81,7 @@ err()  { printf "\033[1;31m[release-build]\033[0m %s\n" "$1" >&2; }
 # Pré-vérifs
 # ---------------------------------------------------------------------------
 
-for cmd in bun curl tar zstd; do
+for cmd in bun node curl tar zstd; do
   command -v "$cmd" >/dev/null 2>&1 || { err "Outil requis manquant : $cmd"; exit 1; }
 done
 
@@ -117,6 +117,19 @@ bun install --frozen-lockfile --ignore-scripts
 
 cd "$FABI_CLI_DIR/packages/opencode"
 
+# Le build officiel dérive sinon une version preview depuis le nom de branche.
+# Dans la CI de release, fabi-cli est checkout sur un SHA détaché : le canal est
+# alors vide et le binaire reçoit une version `0.0.0--<timestamp>`. OpenCode
+# utilise aussi cette version pour installer `@opencode-ai/plugin`, qui n'existe
+# évidemment pas sous ce numéro synthétique. La version du package checkouté est
+# la source de vérité compatible avec le plugin publié correspondant.
+OPENCODE_PACKAGE_VERSION="$(node -p 'require(process.argv[1]).version' "$FABI_CLI_DIR/packages/opencode/package.json")"
+if [[ ! "$OPENCODE_PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+  err "Version OpenCode invalide dans packages/opencode/package.json : $OPENCODE_PACKAGE_VERSION"
+  exit 1
+fi
+log "Version OpenCode : $OPENCODE_PACKAGE_VERSION (canal latest)"
+
 # Le script accepte :
 #   --single             : build uniquement la plateforme courante (= du runner GitHub)
 #   --skip-embed-web-ui  : on a supprimé packages/app, donc on skip
@@ -125,7 +138,9 @@ cd "$FABI_CLI_DIR/packages/opencode"
 # de fabi-cli, build.ts (const PRODUCT = "fabi") compile directement le binaire
 # sous le nom `fabi` (avant il sortait `opencode` et on le renommait ici).
 rm -rf dist
-bun run script/build.ts --single --skip-embed-web-ui --skip-install
+OPENCODE_VERSION="$OPENCODE_PACKAGE_VERSION" \
+OPENCODE_CHANNEL="latest" \
+  bun run script/build.ts --single --skip-embed-web-ui --skip-install
 
 # Localise le binaire produit (un seul dossier dans dist/ avec --single)
 SRC_BIN_DIR=$(ls -d dist/*/ 2>/dev/null | head -1)
@@ -384,7 +399,14 @@ tar --use-compress-program='zstd -19 -T0 --long=27' -cf "$TARBALL" "$(basename "
 rm -rf "$PKG_DIR"
 
 # Hash SHA256 du tarball ENTIER (vérifié par l'installeur après réassemblage).
-sha256sum "$TARBALL" > "${TARBALL}.sha256" 2>/dev/null || shasum -a 256 "$TARBALL" > "${TARBALL}.sha256"
+# Écrire uniquement le basename rend le sidecar portable et permet aussi
+# `sha256sum -c` / `shasum -c` depuis n'importe quelle machine après download.
+TARBALL_BASENAME="$(basename "$TARBALL")"
+if command -v sha256sum >/dev/null 2>&1; then
+  ( cd "$DIST" && sha256sum "$TARBALL_BASENAME" ) > "${TARBALL}.sha256"
+else
+  ( cd "$DIST" && shasum -a 256 "$TARBALL_BASENAME" ) > "${TARBALL}.sha256"
+fi
 
 ok "Tarball : $TARBALL ($(du -h "$TARBALL" | cut -f1))"
 ok "SHA256  : ${TARBALL}.sha256"
