@@ -25,7 +25,7 @@ export interface ScannerOptions {
   logger?: { error: (msg: string, ...args: unknown[]) => void }
 }
 
-interface SchedulerStatus {
+export interface SchedulerStatus {
   online: boolean
   applicationStatus: string | null
   peers: number
@@ -42,6 +42,74 @@ interface SchedulerStatus {
   routingReady?: boolean
   pipelineCapacityTotal?: number
   pipelineCapacityCurrent?: number
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+/**
+ * Normalise le contrat `/cluster/status_json` de Parallax.
+ *
+ * c54 expose `max_supported_context_tokens` et `node_list[].status`; les
+ * releases antérieures utilisaient `max_context_tokens`, `node_state` et
+ * `loading_phase`. Le registry accepte les deux formes, sans fabriquer de
+ * capacité : `status=available` est déjà le verdict `serving_ready()` du
+ * scheduler (pipeline complet + préfill négocié + route réellement prête).
+ */
+export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
+  const root = record(payload)
+  const data = record(root?.data) ?? {}
+  const nodes = Array.isArray(data.node_list)
+    ? data.node_list.map(record).filter((node): node is Record<string, unknown> => !!node)
+    : []
+  const applicationStatus = typeof data.status === "string" ? data.status : null
+  const schedulerReady = applicationStatus === "available"
+  const prefillReady = typeof data.prefill_contract_ready === "boolean"
+    ? data.prefill_contract_ready
+    : undefined
+  const legacyPipelineReady = typeof data.pipeline_ready === "boolean"
+    ? data.pipeline_ready
+    : undefined
+
+  return {
+    online: true,
+    applicationStatus,
+    peers: nodes.length,
+    totalVramGb: Math.round(nodes.reduce(
+      (sum, node) => sum + (finiteNumber(node.gpu_memory) ?? 0),
+      0,
+    ) * 10) / 10,
+    maxContextTokens:
+      finiteNumber(data.max_supported_context_tokens) ?? finiteNumber(data.max_context_tokens),
+    needMoreNodes: typeof data.need_more_nodes === "boolean" ? data.need_more_nodes : undefined,
+    initNodesNum: finiteNumber(data.init_nodes_num),
+    lastBootstrapResult:
+      typeof data.last_bootstrap_result === "string" || data.last_bootstrap_result === null
+        ? data.last_bootstrap_result
+        : undefined,
+    nodesActive: nodes.filter(
+      node => node.status === "available" || node.node_state === "active",
+    ).length,
+    nodesInitializing: nodes.filter(
+      node => node.status === "waiting"
+        || node.loading_phase === "initializing"
+        || node.loading_phase === "joining",
+    ).length,
+    pipelineCount: finiteNumber(data.pipeline_count),
+    pipelineReadyCount: finiteNumber(data.pipeline_ready_count),
+    pipelineReady: legacyPipelineReady ?? (schedulerReady && prefillReady !== false),
+    routingReady:
+      (typeof data.routing_ready === "boolean" ? data.routing_ready : undefined) ?? schedulerReady,
+    pipelineCapacityTotal: finiteNumber(data.pipeline_capacity_total),
+    pipelineCapacityCurrent: finiteNumber(data.pipeline_capacity_current),
+  }
 }
 
 export class SwarmScanner {
@@ -300,50 +368,7 @@ export class SwarmScanner {
         signal: ctrl.signal,
       })
       if (!res.ok) return { online: false, applicationStatus: null, peers: 0, totalVramGb: 0 }
-      const json = (await res.json()) as {
-        data?: {
-          status?: string
-          need_more_nodes?: boolean
-          init_nodes_num?: number
-          last_bootstrap_result?: string | null
-          pipeline_count?: number
-          pipeline_ready_count?: number
-          pipeline_ready?: boolean
-          routing_ready?: boolean
-          pipeline_capacity_total?: number
-          pipeline_capacity_current?: number
-          max_context_tokens?: number
-          node_list?: Array<{ gpu_memory?: number; node_state?: string; loading_phase?: string }>
-        }
-      }
-      const data = json.data ?? {}
-      const nodeList = Array.isArray(data.node_list) ? data.node_list : []
-      const totalVramGb = nodeList.reduce(
-        (acc, n) => acc + (typeof n.gpu_memory === "number" ? n.gpu_memory : 0),
-        0,
-      )
-      const nodesActive = nodeList.filter((n) => n.node_state === "active").length
-      const nodesInitializing = nodeList.filter(
-        (n) => n.loading_phase === "initializing" || n.loading_phase === "joining",
-      ).length
-      return {
-        online: true,
-        applicationStatus: data.status ?? null,
-        peers: nodeList.length,
-        totalVramGb: Math.round(totalVramGb * 10) / 10,
-        maxContextTokens: data.max_context_tokens,
-        needMoreNodes: data.need_more_nodes,
-        initNodesNum: data.init_nodes_num,
-        lastBootstrapResult: data.last_bootstrap_result ?? null,
-        nodesActive,
-        nodesInitializing,
-        pipelineCount: data.pipeline_count,
-        pipelineReadyCount: data.pipeline_ready_count,
-        pipelineReady: data.pipeline_ready,
-        routingReady: data.routing_ready,
-        pipelineCapacityTotal: data.pipeline_capacity_total,
-        pipelineCapacityCurrent: data.pipeline_capacity_current,
-      }
+      return parseSchedulerStatus(await res.json())
     } catch {
       return { online: false, applicationStatus: null, peers: 0, totalVramGb: 0 }
     } finally {

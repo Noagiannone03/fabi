@@ -1,7 +1,7 @@
 // Test du scanner avec un client Docker simulé.
 
 import { describe, expect, test } from "bun:test"
-import { SwarmScanner } from "./scanner"
+import { SwarmScanner, parseSchedulerStatus } from "./scanner"
 import type { DockerClient } from "./docker"
 
 /** Mock minimal du DockerClient — on remplace seulement les 2 méthodes utilisées. */
@@ -16,6 +16,48 @@ function makeMockDocker(opts: {
 }
 
 describe("SwarmScanner", () => {
+  test("normalise le contrat réel du scheduler c54", () => {
+    const status = parseSchedulerStatus({
+      type: "cluster_status",
+      data: {
+        status: "available",
+        prefill_contract_ready: true,
+        max_supported_context_tokens: 32768,
+        node_list: [
+          { status: "available", gpu_memory: 16, max_sequence_length: 32768 },
+          { status: "available", gpu_memory: 16, max_sequence_length: 32768 },
+        ],
+      },
+    })
+    expect(status).toMatchObject({
+      online: true,
+      applicationStatus: "available",
+      peers: 2,
+      totalVramGb: 32,
+      maxContextTokens: 32768,
+      nodesActive: 2,
+      nodesInitializing: 0,
+      pipelineReady: true,
+      routingReady: true,
+    })
+  })
+
+  test("reste compatible avec les champs de télémétrie historiques", () => {
+    const status = parseSchedulerStatus({
+      data: {
+        status: "waiting",
+        max_context_tokens: 16384,
+        pipeline_ready: false,
+        routing_ready: false,
+        node_list: [{ node_state: "active", loading_phase: "initializing", gpu_memory: 8 }],
+      },
+    })
+    expect(status.maxContextTokens).toBe(16384)
+    expect(status.nodesActive).toBe(1)
+    expect(status.nodesInitializing).toBe(1)
+    expect(status.pipelineReady).toBe(false)
+  })
+
   test("snapshot vide avant scan", () => {
     const scanner = new SwarmScanner(
       makeMockDocker({ containers: [] }),
