@@ -121,6 +121,9 @@ jobs:
           # dépasse 2 GB, passer ce flag à '1' pour windows-latest aussi.
           FABI_SKIP_PARALLAX: ${{ (matrix.platform.accel == 'cuda' && matrix.platform.os != 'windows-latest') && '1' || '' }}
         run: |
+          set -a
+          source runtime-lock.env
+          set +a
           chmod +x scripts/release-build.sh
           ./scripts/release-build.sh \
             ${{ matrix.platform.bun_target }} \

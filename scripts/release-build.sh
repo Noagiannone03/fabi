@@ -25,6 +25,8 @@
 #   PYTHON_BUILD_TAG   release tag de python-build-standalone (défaut: 20241016)
 #   PARALLAX_SOURCE    path local ou spec pip pour parallax (défaut: ../packages/swarm-engine)
 #   PARALLAX_EXTRA     extra pip forcé pour parallax (défaut: auto selon accel)
+#   VLLM_RS_REF        commit vLLM immuable pour le frontend Rust POSIX
+#   VLLM_MINIJINJA_VERSION version MiniJinja compatible avec ce frontend
 #   FABI_SKIP_PARALLAX  si "1", skip le venv parallax (utile pour test build fabi seul)
 
 set -euo pipefail
@@ -68,6 +70,8 @@ PYTHON_BUILD_TAG="${PYTHON_BUILD_TAG:-20241016}"
 # plateformes évite qu'un runtime Fabi accepte le code Python mais échoue au
 # premier import natif (`_ext.cpython-311` absent).
 PYTHON_VERSION="3.12.7"
+VLLM_RS_REF="${VLLM_RS_REF:-ee0da84ab9e04ac7610e28580af62c365e898389}"
+VLLM_MINIJINJA_VERSION="${VLLM_MINIJINJA_VERSION:-2.20.0}"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -314,6 +318,28 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     fi
     "$VENV_PIP" install --quiet requests
     ok  "Parallax installé"
+  fi
+
+  # Le frontend HTTP officiel n'est pas un paquet Python : Parallax le compile
+  # séparément depuis les sources Rust de vLLM. Sans ce binaire, un worker POSIX
+  # annonce supports_frontend=false et aucune pipeline ne peut recevoir la
+  # couche zéro. Réutiliser le builder Parallax évite de dupliquer ce contrat.
+  if [[ "$PBS_ARCH" != *windows* ]]; then
+    log "(3.4/4) Compilation du frontend Rust vllm-rs…"
+    PARALLAX_VENV_DIR="$PKG_DIR/runtime/parallax-venv" \
+    VLLM_REF="$VLLM_RS_REF" \
+    VLLM_MINIJINJA_VERSION="$VLLM_MINIJINJA_VERSION" \
+      "$SWARM_ENGINE_DIR/install.sh" --frontend-only
+
+    VLLM_RS_BIN="$PKG_DIR/runtime/parallax-venv/bin/vllm-rs"
+    if [ ! -x "$VLLM_RS_BIN" ]; then
+      err "Le frontend Rust vllm-rs est absent après compilation : $VLLM_RS_BIN"
+      exit 1
+    fi
+    "$VLLM_RS_BIN" --help >/dev/null
+    "$VENV_PY" -c \
+      'from parallax.server.vllm_rust_frontend import vllm_rust_frontend_available; assert vllm_rust_frontend_available()'
+    ok "Frontend Rust vllm-rs exécutable et détecté par Parallax"
   fi
 
   # Rendre les symlinks Python du venv relocatables.
