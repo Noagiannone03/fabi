@@ -378,16 +378,21 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
 
   # On cible uniquement les fichiers texte du venv (pyvenv.cfg, scripts pip/parallax,
   # fichiers .py qui peuvent contenir des paths hardcodés, RECORD du dist-info)
-  # On utilise grep -lI pour skipper les binaires (et éviter de corrompre les .so)
-  PATCHED_COUNT=0
   RELOCATION_MANIFEST="$PKG_DIR/runtime/relocation-manifest.txt"
-  : > "$RELOCATION_MANIFEST"
-  while IFS= read -r f; do
-    # macOS sed exige un suffix pour -i, Linux non — on utilise une syntaxe compatible
-    sed -i.bak "s|$PKG_DIR|$PLACEHOLDER|g" "$f" && rm -f "$f.bak"
-    printf '%s\n' "${f#"$PKG_DIR"/}" >> "$RELOCATION_MANIFEST"
-    PATCHED_COUNT=$((PATCHED_COUNT + 1))
-  done < <(grep -rlI "$PKG_DIR" "$PKG_DIR/runtime" 2>/dev/null || true)
+  BUILD_ROOT_ARGS=(--build-root "$PKG_DIR")
+  if command -v cygpath >/dev/null 2>&1; then
+    # Git Bash et Python natif nomment le même dossier différemment.
+    BUILD_ROOT_ARGS+=(--build-root "$(cygpath -w "$PKG_DIR")")
+    BUILD_ROOT_ARGS+=(--build-root "$(cygpath -m "$PKG_DIR")")
+  fi
+  PATCHED_COUNT="$(
+    "$VENV_PY" "$ROOT/scripts/neutralize-runtime-paths.py" \
+      --runtime "$PKG_DIR/runtime" \
+      --install-root "$PKG_DIR" \
+      --manifest "$RELOCATION_MANIFEST" \
+      --placeholder "$PLACEHOLDER" \
+      "${BUILD_ROOT_ARGS[@]}"
+  )"
   if [ "$PATCHED_COUNT" -eq 0 ]; then
     err "Aucun chemin runtime n'a été neutralisé ; le venv n'est pas relocalisable"
     exit 1
