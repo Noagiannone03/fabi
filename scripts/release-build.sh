@@ -380,11 +380,18 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   # fichiers .py qui peuvent contenir des paths hardcodés, RECORD du dist-info)
   # On utilise grep -lI pour skipper les binaires (et éviter de corrompre les .so)
   PATCHED_COUNT=0
+  RELOCATION_MANIFEST="$PKG_DIR/runtime/relocation-manifest.txt"
+  : > "$RELOCATION_MANIFEST"
   while IFS= read -r f; do
     # macOS sed exige un suffix pour -i, Linux non — on utilise une syntaxe compatible
     sed -i.bak "s|$PKG_DIR|$PLACEHOLDER|g" "$f" && rm -f "$f.bak"
+    printf '%s\n' "${f#"$PKG_DIR"/}" >> "$RELOCATION_MANIFEST"
     PATCHED_COUNT=$((PATCHED_COUNT + 1))
   done < <(grep -rlI "$PKG_DIR" "$PKG_DIR/runtime" 2>/dev/null || true)
+  if [ "$PATCHED_COUNT" -eq 0 ]; then
+    err "Aucun chemin runtime n'a été neutralisé ; le venv n'est pas relocalisable"
+    exit 1
+  fi
   ok  "Paths neutralisés dans $PATCHED_COUNT fichiers du venv"
 
   # 3.6 Allègement du venv — on retire ce qui est INUTILE à l'exécution. Réduit

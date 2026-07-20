@@ -171,6 +171,44 @@ function Add-ToUserPath {
     }
 }
 
+function Relocate-BundledRuntime {
+    param([string]$InstallRoot)
+
+    $placeholder = "__FABI_INSTALL_ROOT__"
+    $manifest = Join-Path $InstallRoot "runtime\relocation-manifest.txt"
+    if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
+        throw "Manifeste de relocalisation runtime absent : $manifest"
+    }
+
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $count = 0
+    foreach ($line in [System.IO.File]::ReadAllLines($manifest, $utf8)) {
+        $relative = $line.Trim()
+        if (-not $relative) { continue }
+        $segments = $relative -split "[\\/]"
+        if ([System.IO.Path]::IsPathRooted($relative) -or $segments -contains ".." -or $segments[0] -ne "runtime") {
+            throw "Chemin de relocalisation invalide : $relative"
+        }
+
+        $normalized = $relative.Replace("/", [System.IO.Path]::DirectorySeparatorChar)
+        $path = Join-Path $InstallRoot $normalized
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Fichier de relocalisation absent : $relative"
+        }
+        $content = [System.IO.File]::ReadAllText($path, $utf8)
+        if (-not $content.Contains($placeholder)) {
+            throw "Placeholder de relocalisation absent : $relative"
+        }
+        [System.IO.File]::WriteAllText($path, $content.Replace($placeholder, $InstallRoot), $utf8)
+        $count += 1
+    }
+
+    if ($count -eq 0) {
+        throw "Manifeste de relocalisation runtime vide"
+    }
+    Write-Ok "Runtime Python relocalise dans $count fichiers"
+}
+
 function Install-NativeFabi {
     param(
         [string]$Repo,
@@ -258,10 +296,21 @@ function Install-NativeFabi {
         & zstd.exe -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
         & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $InstallRoot --strip-components=1
 
+        Relocate-BundledRuntime -InstallRoot $InstallRoot
+
         $fabiBin = Join-Path $InstallRoot "bin\fabi.exe"
         if (-not (Test-Path $fabiBin)) {
             Write-Err "fabi.exe absent apres extraction : $fabiBin"
             exit 1
+        }
+
+        $runtimePython = Join-Path $InstallRoot "runtime\parallax-venv\Scripts\python.exe"
+        if (-not (Test-Path -LiteralPath $runtimePython -PathType Leaf)) {
+            throw "Python runtime absent apres extraction : $runtimePython"
+        }
+        & $runtimePython -c "import parallax"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Le runtime Parallax relocalise ne peut pas etre importe"
         }
 
         Add-ToUserPath (Join-Path $InstallRoot "bin")

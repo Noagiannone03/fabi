@@ -205,18 +205,40 @@ fi
 # Le tarball contient un venv Python pré-installé avec Parallax. Le venv
 # n'est pas relocatable par défaut (paths absolus de la machine de build),
 # release-build.sh a remplacé ces paths par le placeholder
-# __FABI_INSTALL_ROOT__ — on le remplace ici par le vrai INSTALL_ROOT.
+# __FABI_INSTALL_ROOT__ et enregistré les fichiers texte concernés dans un
+# manifeste. On ne scanne plus aveuglément les binaires du runtime.
 PLACEHOLDER="__FABI_INSTALL_ROOT__"
-if [ -d "$INSTALL_ROOT/runtime" ] && grep -rqI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null; then
+RELOCATION_MANIFEST="$INSTALL_ROOT/runtime/relocation-manifest.txt"
+if [ -f "$RELOCATION_MANIFEST" ]; then
   log "Relocalisation du runtime Python…"
   RELOC_COUNT=0
-  while IFS= read -r f; do
-    if command -v sed >/dev/null 2>&1; then
-      sed -i.bak "s|$PLACEHOLDER|$INSTALL_ROOT|g" "$f" && rm -f "$f.bak"
-      RELOC_COUNT=$((RELOC_COUNT + 1))
+  while IFS= read -r relative; do
+    relative="$(printf '%s' "$relative" | tr -d '\r')"
+    [ -z "$relative" ] && continue
+    case "$relative" in
+      /*|../*|*/../*) err "Chemin de relocalisation invalide : $relative"; exit 1 ;;
+      runtime/*) ;;
+      *) err "Chemin de relocalisation hors runtime : $relative"; exit 1 ;;
+    esac
+    file="$INSTALL_ROOT/$relative"
+    if [ ! -f "$file" ] || ! grep -q "$PLACEHOLDER" "$file"; then
+      err "Fichier de relocalisation invalide : $relative"
+      exit 1
     fi
-  done < <(grep -rlI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null || true)
+    sed -i.bak "s|$PLACEHOLDER|$INSTALL_ROOT|g" "$file" && rm -f "$file.bak"
+    RELOC_COUNT=$((RELOC_COUNT + 1))
+  done < "$RELOCATION_MANIFEST"
+  if [ "$RELOC_COUNT" -eq 0 ]; then
+    err "Manifeste de relocalisation vide"
+    exit 1
+  fi
   ok "Runtime relocalisé dans $RELOC_COUNT fichiers"
+elif [ -d "$INSTALL_ROOT/runtime" ] && grep -rqI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null; then
+  # Compatibilité avec les anciennes RC sans manifeste.
+  warn "Runtime ancien sans manifeste de relocalisation ; fallback par scan texte"
+  while IFS= read -r file; do
+    sed -i.bak "s|$PLACEHOLDER|$INSTALL_ROOT|g" "$file" && rm -f "$file.bak"
+  done < <(grep -rlI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null || true)
 fi
 
 # ---------------------------------------------------------------------------
