@@ -24,6 +24,36 @@ function Write-Ok($msg)   { Write-Host "[fabi-install] $msg" -ForegroundColor Gr
 function Write-Warn($msg) { Write-Warning "[fabi-install] $msg" }
 function Write-Err($msg)  { Write-Host "[fabi-install] $msg" -ForegroundColor Red }
 
+function Save-UrlFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Uri,
+        [Parameter(Mandatory = $true)][string]$OutFile
+    )
+
+    $curl = Get-Command "curl.exe" -ErrorAction SilentlyContinue
+    if ($curl) {
+        & $curl.Source --fail --location --show-error --output $OutFile $Uri
+        if ($LASTEXITCODE -ne 0) {
+            throw "curl.exe failed with exit code $LASTEXITCODE while downloading $Uri"
+        }
+        return
+    }
+
+    Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+}
+
+function Read-UrlText {
+    param([Parameter(Mandatory = $true)][string]$Uri)
+
+    $tmp = New-TemporaryFile
+    try {
+        Save-UrlFile -Uri $Uri -OutFile $tmp.FullName
+        return (Get-Content -LiteralPath $tmp.FullName -Raw)
+    } finally {
+        Remove-Item -LiteralPath $tmp.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Get-FabiRepo {
     if ($env:FABI_REPO) { return $env:FABI_REPO }
     return "Noagiannone03/fabi"
@@ -248,7 +278,7 @@ function Install-NativeFabi {
         # reassemble (concatenation binaire). Sinon, telechargement direct.
         $partsTxt = Join-Path $tmpDir "parts.txt"
         $isSplit = $true
-        try { Invoke-WebRequest -Uri "$tarballUrl.parts" -OutFile $partsTxt -UseBasicParsing -ErrorAction Stop } catch { $isSplit = $false }
+        try { Save-UrlFile -Uri "$tarballUrl.parts" -OutFile $partsTxt } catch { $isSplit = $false }
         if ($isSplit) {
             Write-Log "Asset volumineux -> telechargement en parties + reassemblage..."
             $out = [System.IO.File]::Open($tarballPath, [System.IO.FileMode]::Create)
@@ -258,7 +288,7 @@ function Install-NativeFabi {
                     if (-not $part) { continue }
                     $partPath = Join-Path $tmpDir $part
                     Write-Log "  partie : $part"
-                    Invoke-WebRequest -Uri "$dlBase/$part" -OutFile $partPath -UseBasicParsing
+                    Save-UrlFile -Uri "$dlBase/$part" -OutFile $partPath
                     $in = [System.IO.File]::OpenRead($partPath)
                     try { $in.CopyTo($out) } finally { $in.Close() }
                     Remove-Item $partPath -Force
@@ -266,11 +296,11 @@ function Install-NativeFabi {
             } finally { $out.Close() }
         } else {
             Write-Log "Telechargement : $tarballUrl"
-            Invoke-WebRequest -Uri $tarballUrl -OutFile $tarballPath -UseBasicParsing
+            Save-UrlFile -Uri $tarballUrl -OutFile $tarballPath
         }
 
         try {
-            $expected = (Invoke-WebRequest -Uri $shaUrl -UseBasicParsing).Content.Trim().Split()[0]
+            $expected = (Read-UrlText -Uri $shaUrl).Trim().Split()[0]
             $actual = (Get-FileHash -Path $tarballPath -Algorithm SHA256).Hash.ToLower()
             if ($expected -ne $actual) {
                 Write-Err "SHA256 mismatch. Attendu: $expected, Recu: $actual"
