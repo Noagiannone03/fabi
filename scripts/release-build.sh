@@ -279,6 +279,12 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     # shellcheck disable=SC2086 -- on veut le word-split (plusieurs paquets)
     "$VENV_PIP" install $FABI_TORCH_SPEC --extra-index-url "$FABI_TORCH_INDEX"
     "$VENV_PIP" install "$WHL_TMP"/repacked/*.whl --extra-index-url "$FABI_TORCH_INDEX"
+    # vLLM 0.16 guards these dependencies with platform_machine == "x86_64".
+    # Native CPython reports "AMD64" on Windows, so pip skips both markers even
+    # though the projects publish win_amd64 wheels.  vllm.v1.request imports the
+    # llguidance backend eagerly and the packaged worker otherwise crashes only
+    # after joining the live cluster.
+    "$VENV_PIP" install "llguidance>=1.3.0,<1.4.0" "xgrammar==0.1.29"
     rm -rf "$WHL_TMP"
     if [ -d "$PARALLAX_SPEC" ]; then
       "$VENV_PIP" install -e "$PARALLAX_SPEC"
@@ -363,6 +369,16 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   if [ ! -x "$PARALLAX_BIN" ]; then
     err "Le binaire parallax est absent après pip install : $PARALLAX_BIN"
     exit 1
+  fi
+
+  if [[ "$PBS_ARCH" == *windows* ]]; then
+    # Exercise the exact import chain used when the CUDA executor subprocess
+    # starts.  This is intentionally hardware-free so GitHub's Windows builder
+    # catches an incomplete runtime before publishing a multi-gigabyte asset.
+    "$VENV_PY" -c \
+      'import llguidance, xgrammar; from vllm.sampling_params import SamplingParams; from vllm.v1.request import Request; from parallax.server.executor.vllm_executor import VLLMExecutor; from parallax.vllm.request_compat import create_vllm_request; params = SamplingParams(max_tokens=1); request = create_vllm_request(Request, sampling_params=params, eos_token_id=1, request_id="fabi-release-smoke", prompt_token_ids=[1], pooling_params=None); assert request.sampling_params.eos_token_id == 1'
+    "$VENV_PY" -m pip check
+    ok "Imports et dépendances du runtime vLLM Windows vérifiés"
   fi
 
   # 3.5 Neutralisation des paths absolus dans le venv
