@@ -32,11 +32,34 @@ function Save-UrlFile {
 
     $curl = Get-Command "curl.exe" -ErrorAction SilentlyContinue
     if ($curl) {
-        & $curl.Source --fail --location --show-error --output $OutFile $Uri
-        if ($LASTEXITCODE -ne 0) {
-            throw "curl.exe failed with exit code $LASTEXITCODE while downloading $Uri"
+        $attempts = 6
+        for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+            $args = @(
+                "--fail",
+                "--location",
+                "--show-error",
+                "--connect-timeout", "30",
+                "--speed-limit", "1024",
+                "--speed-time", "60",
+                "--output", $OutFile
+            )
+            if ((Test-Path -LiteralPath $OutFile -PathType Leaf) -and ((Get-Item -LiteralPath $OutFile).Length -gt 0)) {
+                $args += @("--continue-at", "-")
+            }
+            $args += $Uri
+
+            & $curl.Source @args
+            if ($LASTEXITCODE -eq 0) {
+                return
+            }
+
+            if ($attempt -eq $attempts) {
+                throw "curl.exe failed with exit code $LASTEXITCODE while downloading $Uri"
+            }
+
+            Write-Warn "Telechargement interrompu, nouvelle tentative $($attempt + 1)/$attempts : $Uri"
+            Start-Sleep -Seconds ([Math]::Min(30, 2 * $attempt))
         }
-        return
     }
 
     Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
