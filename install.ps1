@@ -11,6 +11,7 @@
 #   $env:FABI_ACCEL         force accelerator (cuda / cpu)
 #   $env:FABI_WINDOWS_MODE  native (default, no WSL) or wsl (legacy)
 #   $env:FABI_WSL_DISTRO    optional WSL distro name (only when FABI_WINDOWS_MODE=wsl)
+#   $env:FABI_TARBALL_PATH  optional local release tarball to install instead of downloading
 #
 # Windows runs Fabi NATIVELY (no WSL): the GPU engine uses the native-Windows vLLM
 # wheel (SystemPanic, cu124) + mlx-free Parallax, bundled in the windows-x64-cuda
@@ -101,6 +102,29 @@ function Get-Accel {
     if ($env:FABI_ACCEL) { return $env:FABI_ACCEL }
     if (Test-NvidiaGpu) { return "cuda" }
     return "cpu"
+}
+
+function Assert-InstallRootIdle {
+    param([string]$InstallRoot)
+
+    if (-not (Test-Path -LiteralPath $InstallRoot)) {
+        return
+    }
+
+    $resolved = (Resolve-Path -LiteralPath $InstallRoot).Path.TrimEnd('\')
+    $escaped = [regex]::Escape($resolved)
+    $busy = Get-CimInstance Win32_Process | Where-Object {
+        ($_.ExecutablePath -and $_.ExecutablePath.StartsWith($resolved, [System.StringComparison]::OrdinalIgnoreCase)) -or
+        ($_.CommandLine -and $_.CommandLine -match $escaped)
+    } | Select-Object ProcessId, Name, ExecutablePath, CommandLine
+
+    if ($busy) {
+        Write-Err "Installation Fabi active sous $InstallRoot. Arrete les workers/processus Fabi puis relance."
+        $busy | ForEach-Object {
+            Write-Host "  pid=$($_.ProcessId) name=$($_.Name) exe=$($_.ExecutablePath)" -ForegroundColor Yellow
+        }
+        exit 1
+    }
 }
 
 function Quote-Bash {
@@ -292,6 +316,8 @@ function Install-NativeFabi {
     $tarballUrl = "https://github.com/${Repo}/releases/download/${Version}/${tarballName}"
     $shaUrl = "${tarballUrl}.sha256"
 
+    Assert-InstallRootIdle -InstallRoot $InstallRoot
+
     $tmpDir = New-Item -Type Directory -Path (Join-Path $env:TEMP "fabi-install-$([guid]::NewGuid().ToString())")
     try {
         $tarballPath = Join-Path $tmpDir "fabi.tar.zst"
@@ -299,27 +325,36 @@ function Install-NativeFabi {
         # Asset splitte ? release-build.sh publie un manifeste .parts quand le
         # tarball depasse 2 Go (limite GitHub) -> on telecharge les parties et on
         # reassemble (concatenation binaire). Sinon, telechargement direct.
-        $partsTxt = Join-Path $tmpDir "parts.txt"
-        $isSplit = $true
-        try { Save-UrlFile -Uri "$tarballUrl.parts" -OutFile $partsTxt } catch { $isSplit = $false }
-        if ($isSplit) {
-            Write-Log "Asset volumineux -> telechargement en parties + reassemblage..."
-            $out = [System.IO.File]::Open($tarballPath, [System.IO.FileMode]::Create)
-            try {
-                foreach ($line in (Get-Content $partsTxt)) {
-                    $part = $line.Trim()
-                    if (-not $part) { continue }
-                    $partPath = Join-Path $tmpDir $part
-                    Write-Log "  partie : $part"
-                    Save-UrlFile -Uri "$dlBase/$part" -OutFile $partPath
-                    $in = [System.IO.File]::OpenRead($partPath)
-                    try { $in.CopyTo($out) } finally { $in.Close() }
-                    Remove-Item $partPath -Force
-                }
-            } finally { $out.Close() }
+        if ($env:FABI_TARBALL_PATH) {
+            if (-not (Test-Path -LiteralPath $env:FABI_TARBALL_PATH -PathType Leaf)) {
+                Write-Err "FABI_TARBALL_PATH introuvable : $env:FABI_TARBALL_PATH"
+                exit 1
+            }
+            Write-Log "Archive locale : $env:FABI_TARBALL_PATH"
+            Copy-Item -LiteralPath $env:FABI_TARBALL_PATH -Destination $tarballPath -Force
         } else {
-            Write-Log "Telechargement : $tarballUrl"
-            Save-UrlFile -Uri $tarballUrl -OutFile $tarballPath
+            $partsTxt = Join-Path $tmpDir "parts.txt"
+            $isSplit = $true
+            try { Save-UrlFile -Uri "$tarballUrl.parts" -OutFile $partsTxt } catch { $isSplit = $false }
+            if ($isSplit) {
+                Write-Log "Asset volumineux -> telechargement en parties + reassemblage..."
+                $out = [System.IO.File]::Open($tarballPath, [System.IO.FileMode]::Create)
+                try {
+                    foreach ($line in (Get-Content $partsTxt)) {
+                        $part = $line.Trim()
+                        if (-not $part) { continue }
+                        $partPath = Join-Path $tmpDir $part
+                        Write-Log "  partie : $part"
+                        Save-UrlFile -Uri "$dlBase/$part" -OutFile $partPath
+                        $in = [System.IO.File]::OpenRead($partPath)
+                        try { $in.CopyTo($out) } finally { $in.Close() }
+                        Remove-Item $partPath -Force
+                    }
+                } finally { $out.Close() }
+            } else {
+                Write-Log "Telechargement : $tarballUrl"
+                Save-UrlFile -Uri $tarballUrl -OutFile $tarballPath
+            }
         }
 
         try {
