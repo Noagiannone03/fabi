@@ -12,7 +12,7 @@
 
 import { DockerClient } from "./docker"
 import { connectionProfileFromEnvironment } from "./connection-profile"
-import { RelayAccessService } from "./relay-access"
+import { RelayAccessService, parseInfrastructureEndpointIds } from "./relay-access"
 import { SwarmScanner } from "./scanner"
 import { startHttpServer } from "./server"
 
@@ -40,6 +40,9 @@ async function main(): Promise<void> {
   const relayAccess = new RelayAccessService({
     databasePath: RELAY_DATABASE_PATH,
     relayBearerToken: RELAY_HTTP_BEARER,
+    infrastructureEndpointIds: parseInfrastructureEndpointIds(
+      process.env.FABI_RELAY_INFRA_ENDPOINTS,
+    ),
   })
 
   console.log(`[fabi-registry] scanning Docker every ${INTERVAL_MS}ms`)

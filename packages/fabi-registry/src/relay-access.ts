@@ -42,6 +42,8 @@ export interface RelayAccessOptions {
   nonceRetentionMs?: number
   maxEndpointsPerAccount?: number
   now?: () => number
+  /** Stable scheduler/router identities managed by the infrastructure operator. */
+  infrastructureEndpointIds?: string[]
 }
 
 export class RelayAccessError extends Error {
@@ -72,6 +74,7 @@ export class RelayAccessService {
   private readonly nonceRetentionMs: number
   private readonly maxEndpointsPerAccount: number
   private readonly now: () => number
+  private readonly infrastructureEndpointIds: ReadonlySet<string>
 
   constructor(options: RelayAccessOptions) {
     if (!options.relayBearerToken) {
@@ -99,6 +102,11 @@ export class RelayAccessService {
       "maxEndpointsPerAccount",
     )
     this.now = options.now ?? Date.now
+    const infrastructureEndpointIds = options.infrastructureEndpointIds ?? []
+    if (infrastructureEndpointIds.some(endpointId => !ENDPOINT_ID_RE.test(endpointId))) {
+      throw new Error("infrastructure endpoint IDs must be lowercase 32-byte hexadecimal values")
+    }
+    this.infrastructureEndpointIds = new Set(infrastructureEndpointIds)
     this.db = new Database(options.databasePath, { create: true, strict: true })
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;")
     this.db.exec(`
@@ -184,6 +192,7 @@ export class RelayAccessService {
 
   isRelayAuthorized(endpointId: string | null): boolean {
     if (!endpointId || !ENDPOINT_ID_RE.test(endpointId)) return false
+    if (this.infrastructureEndpointIds.has(endpointId)) return true
     const row = this.db.query(
       "SELECT 1 AS allowed FROM relay_endpoints WHERE endpoint_id = ? AND expires_at_ms > ?",
     ).get(endpointId, Math.trunc(this.now())) as { allowed: number } | null
@@ -205,6 +214,22 @@ export class RelayAccessService {
   close(): void {
     this.db.close()
   }
+}
+
+export function parseInfrastructureEndpointIds(raw: string | undefined): string[] {
+  let decoded: unknown
+  try {
+    decoded = JSON.parse(raw ?? "")
+  } catch (error) {
+    throw new Error("FABI_RELAY_INFRA_ENDPOINTS must be a JSON array", { cause: error })
+  }
+  if (!Array.isArray(decoded) || decoded.length === 0
+    || decoded.some(value => typeof value !== "string" || !ENDPOINT_ID_RE.test(value))) {
+    throw new Error(
+      "FABI_RELAY_INFRA_ENDPOINTS must contain lowercase 32-byte hexadecimal EndpointIds",
+    )
+  }
+  return [...new Set(decoded)]
 }
 
 export function hashAccountCredential(credential: string | null): string | null {

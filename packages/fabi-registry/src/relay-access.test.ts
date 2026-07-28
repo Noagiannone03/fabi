@@ -128,4 +128,18 @@ describe("RelayAccessService", () => {
     expect(access.enroll(ACCOUNT_CREDENTIAL, second.proof()).endpoint_id).toBe(second.endpointId)
     access.close()
   })
+
+  test("authorizes explicit infrastructure identities without pretending they are user devices", () => {
+    const infrastructure = signer().endpointId
+    const access = new RelayAccessService({
+      databasePath: databasePath(),
+      relayBearerToken: RELAY_BEARER,
+      infrastructureEndpointIds: [infrastructure],
+      now: () => NOW,
+    })
+    expect(access.isRelayAuthorized(infrastructure)).toBe(true)
+    expect(access.revokeEndpoint(infrastructure)).toBe(false)
+    expect(access.isRelayAuthorized(signer().endpointId)).toBe(false)
+    access.close()
+  })
 })
