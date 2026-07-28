@@ -69,11 +69,21 @@ describe("relay HTTP contract", () => {
         method: "POST",
         headers: {
           Authorization: `Bearer ${RELAY_BEARER}`,
-          "X-Iroh-Endpoint-Id": endpointId,
+          "X-Iroh-NodeId": endpointId,
         },
       })
       expect(allowed.status).toBe(200)
       expect(await allowed.text()).toBe("true")
+
+      const documentedHeader = await fetch(`${base}/v1/network/relay-access`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RELAY_BEARER}`,
+          "X-Iroh-Endpoint-Id": endpointId,
+        },
+      })
+      expect(documentedHeader.status).toBe(200)
+      expect(await documentedHeader.text()).toBe("true")
     } finally {
       server.stop(true)
       access.close()

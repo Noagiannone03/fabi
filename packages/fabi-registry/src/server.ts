@@ -122,7 +122,12 @@ function handleRelayAccess(request: Request, relayAccess: RelayAccessService): R
   if (!relayAccess.authenticateRelay(bearerToken(request))) {
     return new Response("false", { status: 401 })
   }
+  // iroh-relay 1.0.3 documents `X-Iroh-Endpoint-Id`, but the released
+  // binary's `X_IROH_ENDPOINT_ID` constant still emits `X-Iroh-NodeId`.
+  // Accept both spellings so the registry works with the pinned release and
+  // remains compatible when upstream aligns the wire header with its docs.
   const endpointId = request.headers.get("x-iroh-endpoint-id")
+    ?? request.headers.get("x-iroh-nodeid")
   return new Response(relayAccess.isRelayAuthorized(endpointId) ? "true" : "false", {
     status: 200,
     headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
