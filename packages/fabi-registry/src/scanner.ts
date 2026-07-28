@@ -12,7 +12,7 @@
 // non-bloquante — un scheduler down n'empêche pas les autres d'être listés.
 
 import { DockerClient, extractPeerIdFromLogs, DockerError } from "./docker"
-import type { SwarmEntry } from "./types"
+import type { SwarmEntry, WorkerConnectionProfile } from "./types"
 
 export interface ScannerOptions {
   /** Intervalle entre deux scans complets (défaut 5s). */
@@ -23,6 +23,8 @@ export interface ScannerOptions {
   logTailLines?: number
   /** Logger optionnel (sinon console.error). */
   logger?: { error: (msg: string, ...args: unknown[]) => void }
+  /** Public bootstrap contract attached only to Iroh V3 swarms. */
+  workerConnection?: WorkerConnectionProfile
 }
 
 export interface SchedulerStatus {
@@ -139,6 +141,7 @@ export class SwarmScanner {
   private readonly healthcheckTimeoutMs: number
   private readonly logTailLines: number
   private readonly logger: { error: (msg: string, ...args: unknown[]) => void }
+  private readonly workerConnection: WorkerConnectionProfile | undefined
 
   /** Cache des swarms — mis à jour après chaque scan. Lecture O(1). */
   private cache: Map<string, SwarmEntry> = new Map()
@@ -182,6 +185,7 @@ export class SwarmScanner {
     this.healthcheckTimeoutMs = opts.healthcheckTimeoutMs ?? 3_000
     this.logTailLines = opts.logTailLines ?? 500
     this.logger = opts.logger ?? console
+    this.workerConnection = opts.workerConnection
     this.firstScanComplete = new Promise((resolve) => {
       this.resolveFirstScan = resolve
     })
@@ -357,6 +361,9 @@ export class SwarmScanner {
       schedulerUrl,
       schedulerPeer,
       ...(health.networkTransport ? { networkTransport: health.networkTransport } : {}),
+      ...(health.networkTransport === "iroh" && this.workerConnection
+        ? { workerConnection: this.workerConnection }
+        : {}),
       model,
       status,
       schedulerStatus: health.applicationStatus,

@@ -22,6 +22,15 @@ RestartSec=5
 Environment="FABI_REGISTRY_PORT=3002"
 Environment="FABI_REGISTRY_HOST=0.0.0.0"
 Environment="FABI_REGISTRY_INTERVAL_MS=5000"
+Environment="FABI_RELAY_ACCESS_DATABASE=/opt/fabi-registry/relay-access.sqlite3"
+# Contains FABI_RELAY_AUTH_BEARER. The relay receives the same secret through
+# its own root-readable environment file; it is never distributed to clients.
+EnvironmentFile=-/etc/fabi/registry.env
+
+# Secret-free worker bootstrap contract. Production values live alongside the
+# service deployment so bootstrap peer and TUF root rotations do not require a
+# registry rebuild.
+EnvironmentFile=-/etc/fabi/worker-connection.env
 
 # Hardening leger : limite l'acces au reste du systeme
 NoNewPrivileges=true

@@ -13,22 +13,26 @@
 // Pas d'auth pour l'instant — l'endpoint est public en lecture seule.
 
 import type { SwarmScanner } from "./scanner"
+import { RelayAccessError, type RelayAccessService } from "./relay-access"
 import type { SwarmsResponse } from "./types"
 
 export interface ServerOptions {
   port: number
   host: string
   scanner: SwarmScanner
+  relayAccess: RelayAccessService
 }
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
 } as const
 
+const MAX_ENROLLMENT_BODY_BYTES = 4 * 1024
+
 export function startHttpServer(opts: ServerOptions) {
-  const { scanner, port, host } = opts
+  const { scanner, relayAccess, port, host } = opts
 
   const server = Bun.serve({
     port,
@@ -38,6 +42,16 @@ export function startHttpServer(opts: ServerOptions) {
 
       if (req.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS })
+      }
+
+      if (url.pathname === "/v1/network/enroll") {
+        if (req.method !== "POST") return jsonResponse(405, { error: "method_not_allowed" })
+        return handleRelayEnrollment(req, relayAccess)
+      }
+
+      if (url.pathname === "/v1/network/relay-access") {
+        if (req.method !== "POST") return new Response("false", { status: 405 })
+        return handleRelayAccess(req, relayAccess)
       }
 
       if (req.method !== "GET") {
@@ -70,6 +84,49 @@ export function startHttpServer(opts: ServerOptions) {
   })
 
   return server
+}
+
+async function handleRelayEnrollment(
+  request: Request,
+  relayAccess: RelayAccessService,
+): Promise<Response> {
+  const declaredLength = Number(request.headers.get("content-length") ?? "0")
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_ENROLLMENT_BODY_BYTES) {
+    return jsonResponse(413, { error: "request_too_large" })
+  }
+  const body = await request.text()
+  if (Buffer.byteLength(body, "utf8") > MAX_ENROLLMENT_BODY_BYTES) {
+    return jsonResponse(413, { error: "request_too_large" })
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return jsonResponse(400, { error: "invalid_json" })
+  }
+  try {
+    const lease = relayAccess.enroll(bearerToken(request), parsed)
+    return jsonResponse(200, { apiVersion: "v1", lease })
+  } catch (error) {
+    if (error instanceof RelayAccessError) {
+      return jsonResponse(error.status, { error: error.code })
+    }
+    throw error
+  }
+}
+
+function handleRelayAccess(request: Request, relayAccess: RelayAccessService): Response {
+  // This route is called only by iroh-relay. It deliberately returns the exact
+  // lower-case body expected by iroh-relay 1.0.x and reveals no enrollment state
+  // to callers that do not possess the private M2M bearer.
+  if (!relayAccess.authenticateRelay(bearerToken(request))) {
+    return new Response("false", { status: 401 })
+  }
+  const endpointId = request.headers.get("x-iroh-endpoint-id")
+  return new Response(relayAccess.isRelayAuthorized(endpointId) ? "true" : "false", {
+    status: 200,
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -178,4 +235,10 @@ function jsonResponse(status: number, body: unknown): Response {
       "Cache-Control": "no-store",
     },
   })
+}
+
+function bearerToken(request: Request): string | null {
+  const authorization = request.headers.get("authorization")
+  const match = authorization?.match(/^Bearer[ \t]+([^\s]+)$/i)
+  return match?.[1] ?? null
 }

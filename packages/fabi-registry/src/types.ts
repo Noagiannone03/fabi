@@ -10,6 +10,25 @@
  * Mélange métadonnées statiques (labels Docker du compose) et état dynamique
  * (peer ID extrait des logs, healthcheck du scheduler, peers connectés).
  */
+export interface WorkerConnectionProfile {
+  /** Contract version understood by the worker bootstrapper. */
+  protocolVersion: 3
+  transport: "iroh"
+  /** Public Iroh relay URL. No shared token is distributed. */
+  relayUrl: string
+  /** HTTPS endpoint where a worker enrolls its signed EndpointId. */
+  enrollmentUrl: string
+  /** Public libp2p Kademlia bootstrap peers for autonomous placement. */
+  catalogDhtBootstraps: string[]
+  /** TUF trust bootstrap and content endpoints for selective layer downloads. */
+  modelRegistry: {
+    rootUrl: string
+    rootSha256: string
+    metadataUrl: string
+    targetsUrl: string
+  }
+}
+
 export interface SwarmEntry {
   /** Identifiant stable, lu depuis le label `fabi.swarm.id`. */
   id: string
@@ -25,6 +44,9 @@ export interface SwarmEntry {
 
   /** Transport annoncé par le scheduler. Iroh est le transport produit v3. */
   networkTransport?: "iroh" | "lattica" | undefined
+
+  /** Secret-free, complete bootstrap profile for a fresh V3 worker. */
+  workerConnection?: WorkerConnectionProfile | undefined
 
   /** Modèle servi (label `fabi.swarm.model`). */
   model: string

@@ -11,12 +11,17 @@
 // `journalctl -u fabi-registry` reste lisible.
 
 import { DockerClient } from "./docker"
+import { connectionProfileFromEnvironment } from "./connection-profile"
+import { RelayAccessService } from "./relay-access"
 import { SwarmScanner } from "./scanner"
 import { startHttpServer } from "./server"
 
 const PORT = Number(process.env.FABI_REGISTRY_PORT ?? "3002")
 const HOST = process.env.FABI_REGISTRY_HOST ?? "0.0.0.0"
 const INTERVAL_MS = Number(process.env.FABI_REGISTRY_INTERVAL_MS ?? "5000")
+const RELAY_DATABASE_PATH = process.env.FABI_RELAY_ACCESS_DATABASE
+  ?? "/opt/fabi-registry/relay-access.sqlite3"
+const RELAY_HTTP_BEARER = process.env.FABI_RELAY_AUTH_BEARER ?? ""
 
 async function main(): Promise<void> {
   if (Number.isNaN(PORT) || PORT <= 0 || PORT > 65535) {
@@ -25,9 +30,17 @@ async function main(): Promise<void> {
   if (Number.isNaN(INTERVAL_MS) || INTERVAL_MS < 500) {
     throw new Error(`Invalid FABI_REGISTRY_INTERVAL_MS: must be >= 500ms`)
   }
+  if (!RELAY_HTTP_BEARER) {
+    throw new Error("FABI_RELAY_AUTH_BEARER is required for the Iroh relay access callout")
+  }
 
   const docker = new DockerClient()
-  const scanner = new SwarmScanner(docker, { intervalMs: INTERVAL_MS })
+  const workerConnection = connectionProfileFromEnvironment(process.env)
+  const scanner = new SwarmScanner(docker, { intervalMs: INTERVAL_MS, workerConnection })
+  const relayAccess = new RelayAccessService({
+    databasePath: RELAY_DATABASE_PATH,
+    relayBearerToken: RELAY_HTTP_BEARER,
+  })
 
   console.log(`[fabi-registry] scanning Docker every ${INTERVAL_MS}ms`)
   await scanner.start()
@@ -39,7 +52,7 @@ async function main(): Promise<void> {
     )
   }
 
-  const server = startHttpServer({ port: PORT, host: HOST, scanner })
+  const server = startHttpServer({ port: PORT, host: HOST, scanner, relayAccess })
   console.log(`[fabi-registry] listening on http://${HOST}:${PORT}`)
 
   // Graceful shutdown — important pour systemd qui envoie SIGTERM au stop
@@ -47,6 +60,7 @@ async function main(): Promise<void> {
     console.log(`[fabi-registry] received ${sig}, shutting down`)
     scanner.stop()
     server.stop()
+    relayAccess.close()
     process.exit(0)
   }
   process.on("SIGINT", () => shutdown("SIGINT"))
