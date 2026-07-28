@@ -116,6 +116,12 @@ jobs:
           ./scripts/setup.sh
         shell: bash
 
+      - name: Verify coherent runtime lock
+        run: |
+          chmod +x scripts/verify-runtime-lock.sh
+          ./scripts/verify-runtime-lock.sh
+        shell: bash
+
       - name: Build tarball
         env:
           FABI_VERSION: ${{ github.ref_name }}
