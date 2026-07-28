@@ -72,6 +72,7 @@ PYTHON_BUILD_TAG="${PYTHON_BUILD_TAG:-20241016}"
 PYTHON_VERSION="3.12.7"
 VLLM_RS_REF="${VLLM_RS_REF:-ee0da84ab9e04ac7610e28580af62c365e898389}"
 VLLM_MINIJINJA_VERSION="${VLLM_MINIJINJA_VERSION:-2.20.0}"
+NATIVE_NETWORK_VERSION="not-bundled"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -326,6 +327,47 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     ok  "Parallax installé"
   fi
 
+  # Le transport V3 est une extension PyO3 distincte du paquet Python
+  # Parallax. La compiler dans le venv embarqué garantit qu'une installation
+  # neuve possède exactement le transport Iroh/libp2p qualifié, sans dépendre
+  # d'un wheel déjà présent sur la machine de l'utilisateur.
+  #
+  # Le crate cible abi3-py310 : un seul wheel natif par OS/architecture couvre
+  # donc le Python 3.12 du runtime. Maturin gère les différences de linkage
+  # macOS/Linux/Windows et écrit le wheel dans un dossier temporaire contrôlé.
+  NATIVE_NETWORK_DIR="$SWARM_ENGINE_DIR/native/fabi-network"
+  NATIVE_WHEEL_DIR="$PKG_DIR/runtime/native-wheel-build"
+  if [ ! -f "$NATIVE_NETWORK_DIR/pyproject.toml" ] || [ ! -f "$NATIVE_NETWORK_DIR/Cargo.toml" ]; then
+    err "Le transport natif V3 est absent : $NATIVE_NETWORK_DIR"
+    exit 1
+  fi
+
+  log "(3.3/4) Compilation du transport réseau natif V3…"
+  rm -rf "$NATIVE_WHEEL_DIR"
+  mkdir -p "$NATIVE_WHEEL_DIR"
+  "$VENV_PY" -m pip install --quiet "maturin>=1.9,<2"
+  (
+    cd "$NATIVE_NETWORK_DIR"
+    "$VENV_PY" -m maturin build \
+      --release \
+      --interpreter "$VENV_PY" \
+      --out "$NATIVE_WHEEL_DIR"
+  )
+  NATIVE_WHEEL_PATH="$(find "$NATIVE_WHEEL_DIR" -maxdepth 1 -type f -name '*.whl' -print -quit)"
+  if [ -z "$NATIVE_WHEEL_PATH" ]; then
+    err "Maturin n'a produit aucun wheel dans $NATIVE_WHEEL_DIR"
+    exit 1
+  fi
+  "$VENV_PY" -m pip install --quiet --no-deps "$NATIVE_WHEEL_PATH"
+  "$VENV_PY" -c \
+    'import fabi_network_native as native; assert callable(native.create_relay_enrollment_proof); assert hasattr(native, "NetworkNode")'
+  NATIVE_NETWORK_VERSION="$(
+    "$VENV_PY" -c \
+      'from importlib.metadata import version; print(version("fabi-network-native"))'
+  )"
+  rm -rf "$NATIVE_WHEEL_DIR"
+  ok "Transport Iroh/libp2p natif $NATIVE_NETWORK_VERSION compilé, installé et importé"
+
   # Le frontend HTTP officiel n'est pas un paquet Python : Parallax le compile
   # séparément depuis les sources Rust de vLLM. Sans ce binaire, un worker POSIX
   # annonce supports_frontend=false et aucune pipeline ne peut recevoir la
@@ -443,6 +485,7 @@ accel=$ACCEL
 python=$PYTHON_VERSION
 opencode_revision=$(git -C "$FABI_CLI_DIR" rev-parse HEAD)
 parallax_revision=$(git -C "$SWARM_ENGINE_DIR" rev-parse HEAD)
+native_network_version=$NATIVE_NETWORK_VERSION
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 

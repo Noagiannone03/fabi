@@ -85,6 +85,11 @@ jobs:
         with:
           bun-version: 1.3.13
 
+      - name: Setup Rust 1.91
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91"
+
       - name: Setup outils (zstd)
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
@@ -114,12 +119,9 @@ jobs:
       - name: Build tarball
         env:
           FABI_VERSION: ${{ github.ref_name }}
-          # GitHub Releases refuse les assets >2 GB. Le runtime Linux-CUDA complet
-          # dépasse cette limite → son tarball n'embarque que Fabi (Parallax installé
-          # au 1er lancement). Sur Windows on bundle le runtime (wheel vLLM-Windows +
-          # Parallax core mlx-free) pour une app autonome. Si l'artefact Windows
-          # dépasse 2 GB, passer ce flag à '1' pour windows-latest aussi.
-          FABI_SKIP_PARALLAX: ${{ (matrix.platform.accel == 'cuda' && matrix.platform.os != 'windows-latest') && '1' || '' }}
+          # Toutes les plateformes publiées sont autonomes. release-build.sh
+          # découpe déjà les archives dépassant la limite GitHub de 2 Gio, donc le
+          # runtime Linux CUDA n'a plus à être amputé de Parallax et du transport V3.
         run: |
           set -a
           source runtime-lock.env
