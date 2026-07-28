@@ -58,6 +58,50 @@ describe("SwarmScanner", () => {
     expect(status.pipelineReady).toBe(false)
   })
 
+  test("utilise le verdict de route v3 et l'identité Iroh explicite", () => {
+    const endpointId = "e888178432676f45ab58c92df4d0528ed6e867bb0da5fa8b1d717789ca37b625"
+    const status = parseSchedulerStatus({
+      data: {
+        status: "available",
+        // Ces champs appartiennent au chemin de placement v2 et ne doivent
+        // pas rendre indisponible une route v3 active.
+        prefill_contract_ready: false,
+        pipeline_ready: false,
+        routing_ready: false,
+        scheduler_endpoint_id: endpointId,
+        network_transport: "iroh",
+        swarm_v3_shadow: {
+          mode: "active",
+          state: "route_ready",
+          v3_route: ["mac", "rtx"],
+        },
+        node_list: [
+          { status: "available", gpu_memory: 5.2 },
+          { status: "available", gpu_memory: 13.4 },
+        ],
+      },
+    })
+
+    expect(status).toMatchObject({
+      schedulerPeer: endpointId,
+      networkTransport: "iroh",
+      pipelineReady: true,
+      routingReady: true,
+    })
+  })
+
+  test("refuse de déclarer prête une route v3 qui ne l'est pas", () => {
+    const status = parseSchedulerStatus({
+      data: {
+        status: "available",
+        swarm_v3_shadow: { mode: "active", state: "no_feasible_route" },
+      },
+    })
+
+    expect(status.pipelineReady).toBe(false)
+    expect(status.routingReady).toBe(false)
+  })
+
   test("snapshot vide avant scan", () => {
     const scanner = new SwarmScanner(
       makeMockDocker({ containers: [] }),

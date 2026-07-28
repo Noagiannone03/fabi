@@ -4,8 +4,8 @@
 // Cycle (toutes les `intervalMs`) :
 //   1. Lister les containers Docker avec label fabi.swarm=true
 //   2. Pour chaque, extraire labels statiques (id, name, model, url)
-//   3. Lire les logs récents pour trouver "Stored scheduler peer id: ..."
-//   4. Healthcheck via GET <url>/cluster/status_json
+//   3. Healthcheck via GET <url>/cluster/status_json (état + EndpointId v3)
+//   4. Pour un ancien scheduler seulement, lire les logs pour retrouver son PeerID
 //   5. Mettre à jour le cache en mémoire
 //
 // Le cache est lu de manière synchrone par le serveur HTTP. La boucle est
@@ -28,20 +28,22 @@ export interface ScannerOptions {
 export interface SchedulerStatus {
   online: boolean
   applicationStatus: string | null
+  schedulerPeer?: string | undefined
+  networkTransport?: "iroh" | "lattica" | undefined
   peers: number
   totalVramGb: number
-  maxContextTokens?: number
-  needMoreNodes?: boolean
-  initNodesNum?: number
-  lastBootstrapResult?: string | null
-  nodesActive?: number
-  nodesInitializing?: number
-  pipelineCount?: number
-  pipelineReadyCount?: number
-  pipelineReady?: boolean
-  routingReady?: boolean
-  pipelineCapacityTotal?: number
-  pipelineCapacityCurrent?: number
+  maxContextTokens?: number | undefined
+  needMoreNodes?: boolean | undefined
+  initNodesNum?: number | undefined
+  lastBootstrapResult?: string | null | undefined
+  nodesActive?: number | undefined
+  nodesInitializing?: number | undefined
+  pipelineCount?: number | undefined
+  pipelineReadyCount?: number | undefined
+  pipelineReady?: boolean | undefined
+  routingReady?: boolean | undefined
+  pipelineCapacityTotal?: number | undefined
+  pipelineCapacityCurrent?: number | undefined
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -57,11 +59,11 @@ function finiteNumber(value: unknown): number | undefined {
 /**
  * Normalise le contrat `/cluster/status_json` de Parallax.
  *
- * c54 expose `max_supported_context_tokens` et `node_list[].status`; les
- * releases antérieures utilisaient `max_context_tokens`, `node_state` et
- * `loading_phase`. Le registry accepte les deux formes, sans fabriquer de
- * capacité : `status=available` est déjà le verdict `serving_ready()` du
- * scheduler (pipeline complet + préfill négocié + route réellement prête).
+ * Le runtime v3 expose son EndpointId Iroh et le verdict du planner autonome.
+ * Les releases antérieures utilisaient `max_context_tokens`, `pipeline_ready`,
+ * `node_state` et `loading_phase`. Le registry accepte encore ces formes pour
+ * la lecture, mais une instance `mode=active` est jugée uniquement depuis la
+ * route v3 : un ancien contrat de préfill v2 ne peut plus masquer sa disponibilité.
  */
 export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
   const root = record(payload)
@@ -77,10 +79,26 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
   const legacyPipelineReady = typeof data.pipeline_ready === "boolean"
     ? data.pipeline_ready
     : undefined
+  const v3 = record(data.swarm_v3_shadow)
+  const v3Active = v3?.mode === "active"
+  const v3RouteReady = v3?.state === "route_ready"
+  const pipelineReady = v3Active
+    ? schedulerReady && v3RouteReady
+    : legacyPipelineReady ?? (schedulerReady && prefillReady !== false)
+  const schedulerPeer = typeof data.scheduler_endpoint_id === "string"
+    && data.scheduler_endpoint_id.trim().length > 0
+    ? data.scheduler_endpoint_id.trim()
+    : undefined
+  const networkTransport = data.network_transport === "iroh"
+    || data.network_transport === "lattica"
+    ? data.network_transport
+    : undefined
 
   return {
     online: true,
     applicationStatus,
+    ...(schedulerPeer ? { schedulerPeer } : {}),
+    ...(networkTransport ? { networkTransport } : {}),
     peers: nodes.length,
     totalVramGb: Math.round(nodes.reduce(
       (sum, node) => sum + (finiteNumber(node.gpu_memory) ?? 0),
@@ -104,9 +122,12 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
     ).length,
     pipelineCount: finiteNumber(data.pipeline_count),
     pipelineReadyCount: finiteNumber(data.pipeline_ready_count),
-    pipelineReady: legacyPipelineReady ?? (schedulerReady && prefillReady !== false),
+    pipelineReady,
     routingReady:
-      (typeof data.routing_ready === "boolean" ? data.routing_ready : undefined) ?? schedulerReady,
+      v3Active
+        ? pipelineReady
+        : (typeof data.routing_ready === "boolean" ? data.routing_ready : undefined)
+          ?? schedulerReady,
     pipelineCapacityTotal: finiteNumber(data.pipeline_capacity_total),
     pipelineCapacityCurrent: finiteNumber(data.pipeline_capacity_current),
   }
@@ -291,12 +312,22 @@ export class SwarmScanner {
     const model = container.labels["fabi.swarm.model"] ?? ""
     const schedulerUrl = (container.labels["fabi.swarm.url"] ?? "").replace(/\/+$/, "")
 
-    // Peer ID via parse des logs. Le peer ID est loggé UNE seule fois au
-    // boot (ligne ~30 typiquement). On cache par container.id : si déjà
-    // vu, on ressort la valeur sans toucher Docker. Si pas trouvé, on
-    // demande tout le log (`"all"`) plutôt que le tail courant pour
-    // garantir qu'on couvre les logs de boot, puis on cache.
-    let schedulerPeer: string | null = this.peerIdByContainerId.get(container.id) ?? null
+    // Healthcheck du scheduler — données dynamiques et identité de connexion
+    // machine-readable en v3. Les logs ne restent qu'un fallback pour les
+    // anciens schedulers Lattica.
+    let health: SchedulerStatus = {
+      online: false,
+      applicationStatus: null,
+      peers: 0,
+      totalVramGb: 0,
+    }
+    if (schedulerUrl) {
+      health = await this.healthcheck(schedulerUrl)
+    }
+
+    let schedulerPeer: string | null = health.schedulerPeer
+      ?? this.peerIdByContainerId.get(container.id)
+      ?? null
     if (!schedulerPeer) {
       try {
         // Premier passage : lire TOUT le log historique pour ne pas rater
@@ -310,16 +341,8 @@ export class SwarmScanner {
         this.logger.error(`[scanner] log read failed for ${id}:`, (err as Error).message)
       }
     }
-
-    // Healthcheck du scheduler — données dynamiques
-    let health: SchedulerStatus = {
-      online: false,
-      applicationStatus: null,
-      peers: 0,
-      totalVramGb: 0,
-    }
-    if (schedulerUrl) {
-      health = await this.healthcheck(schedulerUrl)
+    if (schedulerPeer) {
+      this.peerIdByContainerId.set(container.id, schedulerPeer)
     }
 
     const status: SwarmEntry["status"] = !schedulerUrl
@@ -333,6 +356,7 @@ export class SwarmScanner {
       name,
       schedulerUrl,
       schedulerPeer,
+      ...(health.networkTransport ? { networkTransport: health.networkTransport } : {}),
       model,
       status,
       schedulerStatus: health.applicationStatus,

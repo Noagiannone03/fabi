@@ -5,7 +5,7 @@
 // Si tu modifies ce fichier, mets à jour aussi le client (et le test contractuel).
 
 /**
- * Une instance de swarm Parallax découverte sur l'hôte Docker.
+ * Une instance de swarm Fabi découverte sur l'hôte Docker.
  *
  * Mélange métadonnées statiques (labels Docker du compose) et état dynamique
  * (peer ID extrait des logs, healthcheck du scheduler, peers connectés).
@@ -20,8 +20,11 @@ export interface SwarmEntry {
   /** URL HTTP du scheduler (label `fabi.swarm.url`). Sans trailing slash. */
   schedulerUrl: string
 
-  /** PeerID Lattica/libp2p extrait des logs. `null` si pas encore vu. */
+  /** EndpointId Iroh v3 (ou PeerID Lattica historique). `null` si indisponible. */
   schedulerPeer: string | null
+
+  /** Transport annoncé par le scheduler. Iroh est le transport produit v3. */
+  networkTransport?: "iroh" | "lattica" | undefined
 
   /** Modèle servi (label `fabi.swarm.model`). */
   model: string
@@ -29,7 +32,7 @@ export interface SwarmEntry {
   /** Statut du scheduler tel qu'annoncé par /cluster/status_json. */
   status: "online" | "offline" | "unknown"
 
-  /** Statut applicatif Parallax: "waiting" tant que pas assez de peers, "ready" sinon. */
+  /** Statut applicatif moteur: "waiting" tant qu'aucune route ne sert, "available" sinon. */
   schedulerStatus: string | null
 
   /** Nombre de workers (peers GPU) actuellement connectés. */
@@ -39,44 +42,44 @@ export interface SwarmEntry {
   totalVramGb: number
 
   /** Fenêtre maximale (prompt + génération) d'une route complète à swarm idle. */
-  maxContextTokens?: number
+  maxContextTokens?: number | undefined
 
   // --- État riche d'orchestration (lu au scan, fan-out via SSE) ---
   // Permet aux clients (IDE/CLI) d'afficher un écran de connexion fidèle SANS
   // poller le scheduler eux-mêmes : un seul scan registry → tous les clients.
 
   /** Le scheduler attend encore des nœuds pour bootstrapper le pipeline. */
-  needMoreNodes?: boolean
+  needMoreNodes?: boolean | undefined
 
   /** Seuil minimal de nœuds pour démarrer le bootstrap. */
-  initNodesNum?: number
+  initNodesNum?: number | undefined
 
   /** Dernier résultat de bootstrap : 'pending'|'success'|'failed_capacity'|'deferred_not_enough_nodes'. */
-  lastBootstrapResult?: string | null
+  lastBootstrapResult?: string | null | undefined
 
   /** Nœuds actifs dans le pipeline (node_state === 'active'). */
-  nodesActive?: number
+  nodesActive?: number | undefined
 
   /** Nœuds encore en initialisation (loading_phase joining/initializing). */
-  nodesInitializing?: number
+  nodesInitializing?: number | undefined
 
   /** Nombre total de routes/pipelines connues par le scheduler. */
-  pipelineCount?: number
+  pipelineCount?: number | undefined
 
   /** Nombre de routes/pipelines réellement prêtes à servir. */
-  pipelineReadyCount?: number
+  pipelineReadyCount?: number | undefined
 
   /** True uniquement si au moins un pipeline est prêt côté scheduler. */
-  pipelineReady?: boolean
+  pipelineReady?: boolean | undefined
 
   /** True si la table de routage est construite et utilisable. */
-  routingReady?: boolean
+  routingReady?: boolean | undefined
 
   /** Capacité totale annoncée par les pipelines prêts. */
-  pipelineCapacityTotal?: number
+  pipelineCapacityTotal?: number | undefined
 
   /** Requêtes actuellement en cours sur les pipelines prêts. */
-  pipelineCapacityCurrent?: number
+  pipelineCapacityCurrent?: number | undefined
 
   /** Date ISO du dernier scan. */
   lastSeen: string
