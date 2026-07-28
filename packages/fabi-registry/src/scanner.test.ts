@@ -102,6 +102,36 @@ describe("SwarmScanner", () => {
     expect(status.routingReady).toBe(false)
   })
 
+  test("distingue un pipeline v3 chargé d'une route momentanément saturée", () => {
+    const status = parseSchedulerStatus({
+      data: {
+        status: "waiting",
+        structural_pipeline_ready: true,
+        admission_ready: false,
+        max_supported_context_tokens: 16384,
+        swarm_v3_shadow: {
+          mode: "active",
+          state: "no_feasible_route",
+        },
+        swarm_v3_execution: {
+          active_routes: [{ request_id: "busy-request" }],
+        },
+        node_list: [
+          { status: "available", gpu_memory: 16 },
+          { status: "available", gpu_memory: 16 },
+        ],
+      },
+    })
+
+    expect(status).toMatchObject({
+      applicationStatus: "waiting",
+      maxContextTokens: 16384,
+      pipelineReady: true,
+      routingReady: false,
+      nodesActive: 2,
+    })
+  })
+
   test("snapshot vide avant scan", () => {
     const scanner = new SwarmScanner(
       makeMockDocker({ containers: [] }),

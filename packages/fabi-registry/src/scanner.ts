@@ -81,11 +81,20 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
   const legacyPipelineReady = typeof data.pipeline_ready === "boolean"
     ? data.pipeline_ready
     : undefined
+  const legacyRoutingReady = typeof data.routing_ready === "boolean"
+    ? data.routing_ready
+    : undefined
+  const structuralPipelineReady = typeof data.structural_pipeline_ready === "boolean"
+    ? data.structural_pipeline_ready
+    : undefined
+  const admissionReady = typeof data.admission_ready === "boolean"
+    ? data.admission_ready
+    : undefined
   const v3 = record(data.swarm_v3_shadow)
   const v3Active = v3?.mode === "active"
   const v3RouteReady = v3?.state === "route_ready"
   const pipelineReady = v3Active
-    ? schedulerReady && v3RouteReady
+    ? structuralPipelineReady ?? v3RouteReady
     : legacyPipelineReady ?? (schedulerReady && prefillReady !== false)
   const schedulerPeer = typeof data.scheduler_endpoint_id === "string"
     && data.scheduler_endpoint_id.trim().length > 0
@@ -127,9 +136,8 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
     pipelineReady,
     routingReady:
       v3Active
-        ? pipelineReady
-        : (typeof data.routing_ready === "boolean" ? data.routing_ready : undefined)
-          ?? schedulerReady,
+        ? admissionReady ?? (schedulerReady && v3RouteReady)
+        : legacyRoutingReady ?? schedulerReady,
     pipelineCapacityTotal: finiteNumber(data.pipeline_capacity_total),
     pipelineCapacityCurrent: finiteNumber(data.pipeline_capacity_current),
   }
