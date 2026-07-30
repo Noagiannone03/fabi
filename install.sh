@@ -14,6 +14,7 @@
 #   FABI_BIN_DIR   où poser le symlink fabi (défaut : ~/.local/bin)
 #   FABI_NO_PATH   si "1", ne touche pas au PATH (pas de modif .bashrc)
 #   FABI_REPO      override repo source (défaut : Noagiannone03/fabi)
+#   FABI_TARBALL_PATH archive locale qualifiée (tests/installations hors ligne)
 
 set -euo pipefail
 
@@ -136,7 +137,14 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 # dépasse 2 Gio (limite GitHub) → on télécharge les parties et on réassemble (cat).
 # Sinon, téléchargement direct du tarball unique (cas des petites plateformes).
 DL_BASE="https://github.com/${FABI_REPO}/releases/download/${FABI_VERSION}"
-if curl -fsSL "${TARBALL_URL}.parts" -o "$TMP_DIR/parts.txt" 2>/dev/null; then
+if [ -n "${FABI_TARBALL_PATH:-}" ]; then
+  if [ ! -f "$FABI_TARBALL_PATH" ]; then
+    err "Archive locale introuvable : $FABI_TARBALL_PATH"
+    exit 1
+  fi
+  log "Archive locale : ${C_DIM}${FABI_TARBALL_PATH}${C_RESET}"
+  cp "$FABI_TARBALL_PATH" "$TMP_DIR/fabi.tar.zst"
+elif curl -fsSL "${TARBALL_URL}.parts" -o "$TMP_DIR/parts.txt" 2>/dev/null; then
   log "Asset volumineux → téléchargement en parties + réassemblage…"
   : > "$TMP_DIR/fabi.tar.zst"
   while IFS= read -r part; do
@@ -161,7 +169,12 @@ fi
 
 # Vérification SHA256 (best effort — on warn si le .sha256 est absent)
 log "Vérification SHA256…"
-if curl -fsSL "$SHA_URL" -o "$TMP_DIR/fabi.tar.zst.sha256" 2>/dev/null; then
+if [ -n "${FABI_TARBALL_PATH:-}" ] && [ -f "${FABI_TARBALL_PATH}.sha256" ]; then
+  cp "${FABI_TARBALL_PATH}.sha256" "$TMP_DIR/fabi.tar.zst.sha256"
+elif [ -z "${FABI_TARBALL_PATH:-}" ]; then
+  curl -fsSL "$SHA_URL" -o "$TMP_DIR/fabi.tar.zst.sha256" 2>/dev/null || true
+fi
+if [ -f "$TMP_DIR/fabi.tar.zst.sha256" ]; then
   EXPECTED="$(awk '{print $1}' "$TMP_DIR/fabi.tar.zst.sha256")"
   if command -v sha256sum >/dev/null 2>&1; then
     ACTUAL="$(sha256sum "$TMP_DIR/fabi.tar.zst" | awk '{print $1}')"
@@ -180,22 +193,16 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Extraction
+# Extraction et activation transactionnelle
 # ---------------------------------------------------------------------------
 log "Installation dans ${C_DIM}${INSTALL_ROOT}${C_RESET}"
 
-# Si déjà installé, on backup avant écrasement
-if [ -d "$INSTALL_ROOT" ]; then
-  BACKUP="${INSTALL_ROOT}.backup-$(date +%s)"
-  warn "Install existante détectée, backup → $BACKUP"
-  mv "$INSTALL_ROOT" "$BACKUP"
-fi
+STAGING_ROOT="$TMP_DIR/install"
+mkdir -p "$STAGING_ROOT"
+tar --use-compress-program=unzstd -xf "$TMP_DIR/fabi.tar.zst" -C "$STAGING_ROOT" --strip-components=1
 
-mkdir -p "$INSTALL_ROOT"
-tar --use-compress-program=unzstd -xf "$TMP_DIR/fabi.tar.zst" -C "$INSTALL_ROOT" --strip-components=1
-
-if [ ! -x "$INSTALL_ROOT/bin/fabi" ]; then
-  err "Le binaire fabi est absent après extraction : $INSTALL_ROOT/bin/fabi"
+if [ ! -x "$STAGING_ROOT/bin/fabi" ]; then
+  err "Le binaire fabi est absent après extraction : $STAGING_ROOT/bin/fabi"
   exit 1
 fi
 
@@ -208,7 +215,7 @@ fi
 # __FABI_INSTALL_ROOT__ et enregistré les fichiers texte concernés dans un
 # manifeste. On ne scanne plus aveuglément les binaires du runtime.
 PLACEHOLDER="__FABI_INSTALL_ROOT__"
-RELOCATION_MANIFEST="$INSTALL_ROOT/runtime/relocation-manifest.txt"
+RELOCATION_MANIFEST="$STAGING_ROOT/runtime/relocation-manifest.txt"
 if [ -f "$RELOCATION_MANIFEST" ]; then
   log "Relocalisation du runtime Python…"
   RELOC_COUNT=0
@@ -220,7 +227,7 @@ if [ -f "$RELOCATION_MANIFEST" ]; then
       runtime/*) ;;
       *) err "Chemin de relocalisation hors runtime : $relative"; exit 1 ;;
     esac
-    file="$INSTALL_ROOT/$relative"
+    file="$STAGING_ROOT/$relative"
     if [ ! -f "$file" ] || ! grep -q "$PLACEHOLDER" "$file"; then
       err "Fichier de relocalisation invalide : $relative"
       exit 1
@@ -233,12 +240,100 @@ if [ -f "$RELOCATION_MANIFEST" ]; then
     exit 1
   fi
   ok "Runtime relocalisé dans $RELOC_COUNT fichiers"
-elif [ -d "$INSTALL_ROOT/runtime" ] && grep -rqI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null; then
+elif [ -d "$STAGING_ROOT/runtime" ] && grep -rqI "$PLACEHOLDER" "$STAGING_ROOT/runtime" 2>/dev/null; then
   # Compatibilité avec les anciennes RC sans manifeste.
   warn "Runtime ancien sans manifeste de relocalisation ; fallback par scan texte"
   while IFS= read -r file; do
     sed -i.bak "s|$PLACEHOLDER|$INSTALL_ROOT|g" "$file" && rm -f "$file.bak"
-  done < <(grep -rlI "$PLACEHOLDER" "$INSTALL_ROOT/runtime" 2>/dev/null || true)
+  done < <(grep -rlI "$PLACEHOLDER" "$STAGING_ROOT/runtime" 2>/dev/null || true)
+fi
+
+# Une mise à jour ne doit jamais déplacer les identités Iroh, la racine TUF,
+# les journaux SSE ou l'état de fencing avec les binaires. Le paquet déclare
+# donc explicitement les entrées qu'il possède. Les autres chemins présents
+# sous INSTALL_ROOT appartiennent à l'utilisateur et restent en place.
+MANAGED_PATHS_FILE="$STAGING_ROOT/.fabi-managed-paths"
+if [ ! -f "$MANAGED_PATHS_FILE" ]; then
+  err "Manifeste des chemins gérés absent : .fabi-managed-paths"
+  exit 1
+fi
+MANAGED_PATHS=""
+while IFS= read -r managed; do
+  managed="$(printf '%s' "$managed" | tr -d '\r')"
+  [ -z "$managed" ] && continue
+  case "$managed" in
+    .|..|/*|*/*|*\\*) err "Chemin géré invalide : $managed"; exit 1 ;;
+  esac
+  if [ ! -e "$STAGING_ROOT/$managed" ] && [ ! -L "$STAGING_ROOT/$managed" ]; then
+    err "Chemin géré absent du paquet : $managed"
+    exit 1
+  fi
+  MANAGED_PATHS="${MANAGED_PATHS}${managed}
+"
+done < "$MANAGED_PATHS_FILE"
+if [ -z "$MANAGED_PATHS" ]; then
+  err "Manifeste des chemins gérés vide"
+  exit 1
+fi
+
+mkdir -p "$INSTALL_ROOT"
+BACKUP="${INSTALL_ROOT}.backup-$(date +%s)-$$"
+mkdir -p "$BACKUP"
+BACKUP_USED=0
+while IFS= read -r managed; do
+  [ -z "$managed" ] && continue
+  if [ -e "$INSTALL_ROOT/$managed" ] || [ -L "$INSTALL_ROOT/$managed" ]; then
+    mv "$INSTALL_ROOT/$managed" "$BACKUP/$managed"
+    BACKUP_USED=1
+  fi
+done <<EOF
+$MANAGED_PATHS
+EOF
+
+ACTIVATION_FAILED=0
+while IFS= read -r managed; do
+  [ -z "$managed" ] && continue
+  if ! mv "$STAGING_ROOT/$managed" "$INSTALL_ROOT/$managed"; then
+    ACTIVATION_FAILED=1
+    break
+  fi
+done <<EOF
+$MANAGED_PATHS
+EOF
+
+if [ "$ACTIVATION_FAILED" -ne 0 ]; then
+  err "Activation du nouveau runtime échouée ; restauration de la version précédente"
+  while IFS= read -r managed; do
+    [ -z "$managed" ] && continue
+    rm -rf "$INSTALL_ROOT/$managed"
+    if [ -e "$BACKUP/$managed" ] || [ -L "$BACKUP/$managed" ]; then
+      mv "$BACKUP/$managed" "$INSTALL_ROOT/$managed"
+    fi
+  done <<EOF
+$MANAGED_PATHS
+EOF
+  exit 1
+fi
+
+RUNTIME_PYTHON="$INSTALL_ROOT/runtime/parallax-venv/bin/python"
+if [ ! -x "$RUNTIME_PYTHON" ] || ! "$RUNTIME_PYTHON" -c 'import parallax'; then
+  err "Le runtime Parallax activé ne peut pas être importé ; restauration de la version précédente"
+  while IFS= read -r managed; do
+    [ -z "$managed" ] && continue
+    rm -rf "$INSTALL_ROOT/$managed"
+    if [ -e "$BACKUP/$managed" ] || [ -L "$BACKUP/$managed" ]; then
+      mv "$BACKUP/$managed" "$INSTALL_ROOT/$managed"
+    fi
+  done <<EOF
+$MANAGED_PATHS
+EOF
+  exit 1
+fi
+
+if [ "$BACKUP_USED" -eq 1 ]; then
+  warn "Ancien runtime sauvegardé dans $BACKUP"
+else
+  rmdir "$BACKUP"
 fi
 
 # ---------------------------------------------------------------------------

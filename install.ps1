@@ -12,6 +12,7 @@
 #   $env:FABI_WINDOWS_MODE  native (default, no WSL) or wsl (legacy)
 #   $env:FABI_WSL_DISTRO    optional WSL distro name (only when FABI_WINDOWS_MODE=wsl)
 #   $env:FABI_TARBALL_PATH  optional local release tarball to install instead of downloading
+#   $env:FABI_NO_PATH       "1" to leave the user PATH unchanged
 #
 # Windows runs Fabi NATIVELY (no WSL): the GPU engine uses the native-Windows vLLM
 # wheel (SystemPanic, cu124) + mlx-free Parallax, bundled in the windows-x64-cuda
@@ -236,6 +237,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0fabi.ps1" %*
 
 function Add-ToUserPath {
     param([string]$BinDir)
+    if ($env:FABI_NO_PATH -eq "1") {
+        return
+    }
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     if ($userPath -notlike "*$BinDir*") {
         Write-Log "Ajout de $BinDir au PATH utilisateur..."
@@ -249,10 +253,13 @@ function Add-ToUserPath {
 }
 
 function Relocate-BundledRuntime {
-    param([string]$InstallRoot)
+    param(
+        [string]$PackageRoot,
+        [string]$InstallRoot
+    )
 
     $placeholder = "__FABI_INSTALL_ROOT__"
-    $manifest = Join-Path $InstallRoot "runtime\relocation-manifest.txt"
+    $manifest = Join-Path $PackageRoot "runtime\relocation-manifest.txt"
     if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
         throw "Manifeste de relocalisation runtime absent : $manifest"
     }
@@ -268,7 +275,7 @@ function Relocate-BundledRuntime {
         }
 
         $normalized = $relative.Replace("/", [System.IO.Path]::DirectorySeparatorChar)
-        $path = Join-Path $InstallRoot $normalized
+        $path = Join-Path $PackageRoot $normalized
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
             throw "Fichier de relocalisation absent : $relative"
         }
@@ -369,36 +376,90 @@ function Install-NativeFabi {
             Write-Warn "Pas de fichier .sha256 disponible; verification skippee"
         }
 
-        if (Test-Path $InstallRoot) {
-            $backup = "${InstallRoot}.backup-$(Get-Date -UFormat %s)"
-            Write-Warn "Install existante detectee, backup -> $backup"
-            Move-Item $InstallRoot $backup
-        }
-
         if (-not (Get-Command "zstd.exe" -ErrorAction SilentlyContinue)) {
             Write-Err "zstd.exe n'est pas disponible. Installe: winget install Facebook.Zstandard"
             exit 1
         }
 
-        New-Item -Type Directory -Path $InstallRoot -Force | Out-Null
+        $stagingRoot = Join-Path $tmpDir "install"
+        New-Item -Type Directory -Path $stagingRoot -Force | Out-Null
         & zstd.exe -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
-        & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $InstallRoot --strip-components=1
+        if ($LASTEXITCODE -ne 0) { throw "Echec de decompression du paquet Fabi" }
+        & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $stagingRoot --strip-components=1
+        if ($LASTEXITCODE -ne 0) { throw "Echec d'extraction du paquet Fabi" }
 
-        Relocate-BundledRuntime -InstallRoot $InstallRoot
+        Relocate-BundledRuntime -PackageRoot $stagingRoot -InstallRoot $InstallRoot
 
-        $fabiBin = Join-Path $InstallRoot "bin\fabi.exe"
+        $fabiBin = Join-Path $stagingRoot "bin\fabi.exe"
         if (-not (Test-Path $fabiBin)) {
             Write-Err "fabi.exe absent apres extraction : $fabiBin"
             exit 1
         }
 
-        $runtimePython = Join-Path $InstallRoot "runtime\parallax-venv\Scripts\python.exe"
+        $runtimePython = Join-Path $stagingRoot "runtime\parallax-venv\Scripts\python.exe"
         if (-not (Test-Path -LiteralPath $runtimePython -PathType Leaf)) {
             throw "Python runtime absent apres extraction : $runtimePython"
         }
-        & $runtimePython -c "import parallax"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Le runtime Parallax relocalise ne peut pas etre importe"
+
+        $managedManifest = Join-Path $stagingRoot ".fabi-managed-paths"
+        if (-not (Test-Path -LiteralPath $managedManifest -PathType Leaf)) {
+            throw "Manifeste des chemins geres absent : .fabi-managed-paths"
+        }
+        $managedPaths = @()
+        foreach ($line in [System.IO.File]::ReadAllLines($managedManifest)) {
+            $managed = $line.Trim()
+            if (-not $managed) { continue }
+            if ([System.IO.Path]::IsPathRooted($managed) -or $managed -in @(".", "..") -or
+                $managed.Contains("/") -or $managed.Contains("\")) {
+                throw "Chemin gere invalide : $managed"
+            }
+            $packagePath = Join-Path $stagingRoot $managed
+            if (-not (Test-Path -LiteralPath $packagePath)) {
+                throw "Chemin gere absent du paquet : $managed"
+            }
+            $managedPaths += $managed
+        }
+        if ($managedPaths.Count -eq 0) {
+            throw "Manifeste des chemins geres vide"
+        }
+
+        New-Item -Type Directory -Path $InstallRoot -Force | Out-Null
+        $backup = "${InstallRoot}.backup-$(Get-Date -Format 'yyyyMMddHHmmssfff')"
+        New-Item -Type Directory -Path $backup -Force | Out-Null
+        $backupUsed = $false
+        try {
+            foreach ($managed in $managedPaths) {
+                $currentPath = Join-Path $InstallRoot $managed
+                if (Test-Path -LiteralPath $currentPath) {
+                    Move-Item -LiteralPath $currentPath -Destination (Join-Path $backup $managed)
+                    $backupUsed = $true
+                }
+            }
+            foreach ($managed in $managedPaths) {
+                Move-Item -LiteralPath (Join-Path $stagingRoot $managed) -Destination (Join-Path $InstallRoot $managed)
+            }
+
+            $runtimePython = Join-Path $InstallRoot "runtime\parallax-venv\Scripts\python.exe"
+            & $runtimePython -c "import parallax"
+            if ($LASTEXITCODE -ne 0) {
+                throw "Le runtime Parallax relocalise ne peut pas etre importe"
+            }
+        } catch {
+            Write-Warn "Activation du nouveau runtime echouee; restauration de la version precedente"
+            foreach ($managed in $managedPaths) {
+                $currentPath = Join-Path $InstallRoot $managed
+                Remove-Item -LiteralPath $currentPath -Recurse -Force -ErrorAction SilentlyContinue
+                $backupPath = Join-Path $backup $managed
+                if (Test-Path -LiteralPath $backupPath) {
+                    Move-Item -LiteralPath $backupPath -Destination $currentPath
+                }
+            }
+            throw
+        }
+        if ($backupUsed) {
+            Write-Warn "Ancien runtime sauvegarde dans $backup"
+        } else {
+            Remove-Item -LiteralPath $backup -Force
         }
 
         Add-ToUserPath (Join-Path $InstallRoot "bin")

@@ -488,6 +488,12 @@ parallax_revision=$(git -C "$SWARM_ENGINE_DIR" rev-parse HEAD)
 native_network_version=$NATIVE_NETWORK_VERSION
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
+cat > "$PKG_DIR/.fabi-managed-paths" <<'EOF'
+bin
+runtime
+MANIFEST
+.fabi-managed-paths
+EOF
 
 cd "$DIST"
 tar --use-compress-program='zstd -19 -T0 --long=27' -cf "$TARBALL" "$(basename "$PKG_DIR")"
