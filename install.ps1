@@ -364,16 +364,32 @@ function Install-NativeFabi {
             }
         }
 
-        try {
-            $expected = (Read-UrlText -Uri $shaUrl).Trim().Split()[0]
+        $expected = $null
+        if ($env:FABI_TARBALL_PATH) {
+            $localSha = "$($env:FABI_TARBALL_PATH).sha256"
+            if (Test-Path -LiteralPath $localSha -PathType Leaf) {
+                $expected = (Get-Content -LiteralPath $localSha -Raw).Trim().Split()[0]
+            }
+        } else {
+            try {
+                $expected = (Read-UrlText -Uri $shaUrl).Trim().Split()[0]
+            } catch {
+                Write-Warn "Pas de fichier .sha256 disponible; verification skippee"
+            }
+        }
+        if ($expected) {
             $actual = (Get-FileHash -Path $tarballPath -Algorithm SHA256).Hash.ToLower()
             if ($expected -ne $actual) {
                 Write-Err "SHA256 mismatch. Attendu: $expected, Recu: $actual"
                 exit 1
             }
             Write-Ok "Integrite verifiee"
-        } catch {
-            Write-Warn "Pas de fichier .sha256 disponible; verification skippee"
+        } else {
+            Write-Warn $(if ($env:FABI_TARBALL_PATH) {
+                "Archive locale sans sidecar .sha256; verification skippee"
+            } else {
+                "Somme .sha256 distante indisponible; verification skippee"
+            })
         }
 
         if (-not (Get-Command "zstd.exe" -ErrorAction SilentlyContinue)) {
@@ -440,9 +456,9 @@ function Install-NativeFabi {
             }
 
             $runtimePython = Join-Path $InstallRoot "runtime\parallax-venv\Scripts\python.exe"
-            & $runtimePython -c "import parallax"
+            & $runtimePython -c "from parallax.cli import main as parallax_main; from backend.server.request_agent_frontend import main as request_agent_main"
             if ($LASTEXITCODE -ne 0) {
-                throw "Le runtime Parallax relocalise ne peut pas etre importe"
+                throw "Les entrypoints Parallax et Request Agent relocalises ne peuvent pas etre importes"
             }
         } catch {
             Write-Warn "Activation du nouveau runtime echouee; restauration de la version precedente"

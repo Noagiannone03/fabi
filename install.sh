@@ -316,8 +316,9 @@ EOF
 fi
 
 RUNTIME_PYTHON="$INSTALL_ROOT/runtime/parallax-venv/bin/python"
-if [ ! -x "$RUNTIME_PYTHON" ] || ! "$RUNTIME_PYTHON" -c 'import parallax'; then
-  err "Le runtime Parallax activé ne peut pas être importé ; restauration de la version précédente"
+if [ ! -x "$RUNTIME_PYTHON" ] || ! "$RUNTIME_PYTHON" -c \
+  'from parallax.cli import main as parallax_main; from backend.server.request_agent_frontend import main as request_agent_main'; then
+  err "Les entrypoints Parallax et Request Agent activés ne peuvent pas être importés ; restauration de la version précédente"
   while IFS= read -r managed; do
     [ -z "$managed" ] && continue
     rm -rf "$INSTALL_ROOT/$managed"

@@ -44,7 +44,7 @@ function Invoke-FixtureInstall {
     $env:FABI_ACCEL = "cpu"
     $env:FABI_WINDOWS_MODE = "native"
     $env:FABI_NO_PATH = "1"
-    & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repoRoot "install.ps1") | Out-Null
+    & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repoRoot "install.ps1") *> $null
     if ($LASTEXITCODE -ne 0) { throw "fixture install failed with exit code $LASTEXITCODE" }
 }
 
