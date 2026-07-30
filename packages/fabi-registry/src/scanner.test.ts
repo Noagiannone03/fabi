@@ -74,7 +74,11 @@ describe("SwarmScanner", () => {
         swarm_v3_shadow: {
           mode: "active",
           state: "route_ready",
-          model_swarm_id: modelSwarmId,
+          catalog: {
+            state: "snapshot_ready",
+            model_swarm_id: modelSwarmId,
+            workers: 2,
+          },
           v3_route: ["mac", "rtx"],
         },
         node_list: [
@@ -105,7 +109,10 @@ describe("SwarmScanner", () => {
           swarm_v3_shadow: {
             mode: "active",
             state: "route_ready",
-            model_swarm_id: invalid,
+            catalog: {
+              state: "snapshot_ready",
+              model_swarm_id: invalid,
+            },
           },
         },
       })

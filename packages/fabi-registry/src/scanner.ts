@@ -99,9 +99,15 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
     ? data.admission_ready
     : undefined
   const v3 = record(data.swarm_v3_shadow)
+  const v3Catalog = record(v3?.catalog)
   const v3Active = v3?.mode === "active"
   const v3RouteReady = v3?.state === "route_ready"
-  const v3ModelSwarmId = modelSwarmId(v3?.model_swarm_id)
+  // Le scheduler publie l'identité du snapshot DHT sous `catalog`. La forme
+  // racine n'a existé que dans les premières fixtures du registry ; on la
+  // conserve en lecture pour ne pas casser un ancien scheduler pendant un
+  // rolling upgrade.
+  const v3ModelSwarmId =
+    modelSwarmId(v3Catalog?.model_swarm_id) ?? modelSwarmId(v3?.model_swarm_id)
   const pipelineReady = v3Active
     ? structuralPipelineReady ?? v3RouteReady
     : legacyPipelineReady ?? (schedulerReady && prefillReady !== false)
