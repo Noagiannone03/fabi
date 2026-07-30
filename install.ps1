@@ -399,7 +399,7 @@ function Install-NativeFabi {
 
         $stagingRoot = Join-Path $tmpDir "install"
         New-Item -Type Directory -Path $stagingRoot -Force | Out-Null
-        & zstd.exe -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
+        & zstd.exe -q -f -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
         if ($LASTEXITCODE -ne 0) { throw "Echec de decompression du paquet Fabi" }
         & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $stagingRoot --strip-components=1
         if ($LASTEXITCODE -ne 0) { throw "Echec d'extraction du paquet Fabi" }
