@@ -54,7 +54,29 @@ case "$PLATFORM_TAG" in
       "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-v${ZSTD_VERSION}-win64.zip" \
       -o "$archive"
     verify_sha256 "$archive" "$ZSTD_WINDOWS_ZIP_SHA256"
-    tar -xf "$archive" -C "$TMP_DIR"
+
+    # GitHub's Windows runner executes this script through Git Bash, whose
+    # `tar` is GNU tar and therefore does not extract ZIP archives. Use the
+    # platform ZIP implementation instead. Expand-Archive is backed by
+    # System.IO.Compression and is available in both Windows PowerShell and
+    # PowerShell 7; cygpath converts the MSYS paths before crossing the shell
+    # boundary.
+    if command -v pwsh.exe >/dev/null 2>&1; then
+      powershell_bin="pwsh.exe"
+    elif command -v powershell.exe >/dev/null 2>&1; then
+      powershell_bin="powershell.exe"
+    else
+      echo "PowerShell is required to extract the official Windows zstd ZIP" >&2
+      exit 1
+    fi
+    command -v cygpath >/dev/null 2>&1 || {
+      echo "cygpath is required when building the Windows helper from Git Bash" >&2
+      exit 1
+    }
+    FABI_ZSTD_ARCHIVE="$(cygpath -w "$archive")" \
+      FABI_ZSTD_DESTINATION="$(cygpath -w "$TMP_DIR")" \
+      "$powershell_bin" -NoLogo -NoProfile -NonInteractive -Command \
+        'Expand-Archive -LiteralPath $env:FABI_ZSTD_ARCHIVE -DestinationPath $env:FABI_ZSTD_DESTINATION -Force'
     cp "$TMP_DIR/zstd-v${ZSTD_VERSION}-win64/zstd.exe" "$output"
     ;;
   linux-*|darwin-*)

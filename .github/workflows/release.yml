@@ -62,6 +62,14 @@ jobs:
           }
           ./scripts/test-install-upgrade.ps1
 
+      - name: Build standalone Windows zstd helper
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          chmod +x scripts/build-zstd-decompressor.sh
+          scripts/build-zstd-decompressor.sh windows-x64-cuda
+          test -x dist/fabi-unzstd-windows-x64-cuda.exe
+
   build:
     name: Build ${{ matrix.platform.tag }}
     needs: installer-check
