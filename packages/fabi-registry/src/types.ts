@@ -42,6 +42,12 @@ export interface SwarmEntry {
   /** EndpointId Iroh v3 (ou PeerID Lattica historique). `null` si indisponible. */
   schedulerPeer: string | null
 
+  /**
+   * Identité SHA-256 canonique du manifeste de modèle servi par ce swarm V3.
+   * Le Request Agent la vérifie avant toute planification ou génération.
+   */
+  modelSwarmId?: string | undefined
+
   /** Transport annoncé par le scheduler. Iroh est le transport produit v3. */
   networkTransport?: "iroh" | "lattica" | undefined
 

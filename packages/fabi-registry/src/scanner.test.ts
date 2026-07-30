@@ -60,6 +60,7 @@ describe("SwarmScanner", () => {
 
   test("utilise le verdict de route v3 et l'identité Iroh explicite", () => {
     const endpointId = "e888178432676f45ab58c92df4d0528ed6e867bb0da5fa8b1d717789ca37b625"
+    const modelSwarmId = "46e338001cbca3a457b8e513950d62cc10fc7866226529e7b27825a737797b57"
     const status = parseSchedulerStatus({
       data: {
         status: "available",
@@ -73,6 +74,7 @@ describe("SwarmScanner", () => {
         swarm_v3_shadow: {
           mode: "active",
           state: "route_ready",
+          model_swarm_id: modelSwarmId,
           v3_route: ["mac", "rtx"],
         },
         node_list: [
@@ -84,10 +86,31 @@ describe("SwarmScanner", () => {
 
     expect(status).toMatchObject({
       schedulerPeer: endpointId,
+      modelSwarmId,
       networkTransport: "iroh",
       pipelineReady: true,
       routingReady: true,
     })
+  })
+
+  test("ne publie jamais une identité de modèle v3 mal formée", () => {
+    for (const invalid of [
+      "46e338",
+      "46E338001CBCA3A457B8E513950D62CC10FC7866226529E7B27825A737797B57",
+      "z6e338001cbca3a457b8e513950d62cc10fc7866226529e7b27825a737797b57",
+    ]) {
+      const status = parseSchedulerStatus({
+        data: {
+          status: "available",
+          swarm_v3_shadow: {
+            mode: "active",
+            state: "route_ready",
+            model_swarm_id: invalid,
+          },
+        },
+      })
+      expect(status.modelSwarmId).toBeUndefined()
+    }
   })
 
   test("refuse de déclarer prête une route v3 qui ne l'est pas", () => {

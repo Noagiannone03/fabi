@@ -30,6 +30,8 @@ export interface ScannerOptions {
 export interface SchedulerStatus {
   online: boolean
   applicationStatus: string | null
+  /** Content-addressed identity of the model manifest served by this V3 swarm. */
+  modelSwarmId?: string | undefined
   schedulerPeer?: string | undefined
   networkTransport?: "iroh" | "lattica" | undefined
   peers: number
@@ -56,6 +58,12 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function modelSwarmId(value: unknown): string | undefined {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value)
+    ? value
+    : undefined
 }
 
 /**
@@ -93,6 +101,7 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
   const v3 = record(data.swarm_v3_shadow)
   const v3Active = v3?.mode === "active"
   const v3RouteReady = v3?.state === "route_ready"
+  const v3ModelSwarmId = modelSwarmId(v3?.model_swarm_id)
   const pipelineReady = v3Active
     ? structuralPipelineReady ?? v3RouteReady
     : legacyPipelineReady ?? (schedulerReady && prefillReady !== false)
@@ -108,6 +117,7 @@ export function parseSchedulerStatus(payload: unknown): SchedulerStatus {
   return {
     online: true,
     applicationStatus,
+    ...(v3ModelSwarmId ? { modelSwarmId: v3ModelSwarmId } : {}),
     ...(schedulerPeer ? { schedulerPeer } : {}),
     ...(networkTransport ? { networkTransport } : {}),
     peers: nodes.length,
@@ -368,6 +378,7 @@ export class SwarmScanner {
       name,
       schedulerUrl,
       schedulerPeer,
+      ...(health.modelSwarmId ? { modelSwarmId: health.modelSwarmId } : {}),
       ...(health.networkTransport ? { networkTransport: health.networkTransport } : {}),
       ...(health.networkTransport === "iroh" && this.workerConnection
         ? { workerConnection: this.workerConnection }
