@@ -15,6 +15,7 @@
 #   FABI_NO_PATH   si "1", ne touche pas au PATH (pas de modif .bashrc)
 #   FABI_REPO      override repo source (défaut : Noagiannone03/fabi)
 #   FABI_TARBALL_PATH archive locale qualifiée (tests/installations hors ligne)
+#   FABI_ZSTD_PATH décompresseur local qualifié + sidecar .sha256 (hors ligne)
 
 set -euo pipefail
 
@@ -55,15 +56,6 @@ EOF
 for cmd in curl tar; do
   command -v "$cmd" >/dev/null 2>&1 || { err "Outil requis manquant : $cmd"; exit 1; }
 done
-
-# zstd : pas standard sur tous les Linux, on suggère l'install
-if ! command -v zstd >/dev/null 2>&1; then
-  warn "zstd n'est pas installé."
-  warn "  Ubuntu/Debian : sudo apt install zstd"
-  warn "  macOS         : brew install zstd"
-  warn "  Fedora/RHEL   : sudo dnf install zstd"
-  exit 1
-fi
 
 # ---------------------------------------------------------------------------
 # Détection plateforme
@@ -132,11 +124,70 @@ INSTALL_ROOT="${FABI_INSTALL:-$HOME/.local/share/fabi}"
 BIN_DIR="${FABI_BIN_DIR:-$HOME/.local/bin}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+DL_BASE="https://github.com/${FABI_REPO}/releases/download/${FABI_VERSION}"
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+verify_sha256_sidecar() {
+  path="$1"
+  sidecar="$2"
+  label="$3"
+  EXPECTED="$(awk '{print $1}' "$sidecar")"
+  if ! printf '%s\n' "$EXPECTED" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+    err "SHA256 invalide pour $label"
+    exit 1
+  fi
+  ACTUAL="$(sha256_file "$path")"
+  if [ "$(printf '%s' "$EXPECTED" | tr '[:upper:]' '[:lower:]')" != "$ACTUAL" ]; then
+    err "SHA256 mismatch pour $label"
+    err "  Attendu : $EXPECTED"
+    err "  Reçu    : $ACTUAL"
+    exit 1
+  fi
+}
+
+# Le zstd système est un chemin rapide facultatif. Sur une machine neuve,
+# télécharger le petit décompresseur officiel construit avec la release rend
+# l'installation autonome sans Homebrew, apt, winget ni privilèges admin.
+if [ -n "${FABI_ZSTD_PATH:-}" ]; then
+  if [ ! -f "$FABI_ZSTD_PATH" ] || [ ! -f "${FABI_ZSTD_PATH}.sha256" ]; then
+    err "FABI_ZSTD_PATH doit pointer vers un fichier et son sidecar .sha256"
+    exit 1
+  fi
+  ZSTD_BIN="$TMP_DIR/fabi-unzstd"
+  cp "$FABI_ZSTD_PATH" "$ZSTD_BIN"
+  cp "${FABI_ZSTD_PATH}.sha256" "$TMP_DIR/fabi-unzstd.sha256"
+  verify_sha256_sidecar "$ZSTD_BIN" "$TMP_DIR/fabi-unzstd.sha256" "le décompresseur local"
+  chmod +x "$ZSTD_BIN"
+elif command -v zstd >/dev/null 2>&1; then
+  ZSTD_BIN="$(command -v zstd)"
+else
+  ZSTD_HELPER_NAME="fabi-unzstd-${PLATFORM}"
+  ZSTD_HELPER_URL="${DL_BASE}/${ZSTD_HELPER_NAME}"
+  log "zstd absent → téléchargement du décompresseur autonome…"
+  if ! curl -fL --progress-bar "$ZSTD_HELPER_URL" -o "$TMP_DIR/fabi-unzstd"; then
+    err "Décompresseur autonome absent de la release : $ZSTD_HELPER_URL"
+    exit 1
+  fi
+  if ! curl -fsSL "${ZSTD_HELPER_URL}.sha256" -o "$TMP_DIR/fabi-unzstd.sha256"; then
+    err "Checksum du décompresseur autonome absent"
+    exit 1
+  fi
+  verify_sha256_sidecar "$TMP_DIR/fabi-unzstd" "$TMP_DIR/fabi-unzstd.sha256" "le décompresseur autonome"
+  chmod +x "$TMP_DIR/fabi-unzstd"
+  ZSTD_BIN="$TMP_DIR/fabi-unzstd"
+  ok "Décompresseur autonome vérifié"
+fi
 
 # Asset splitté ? release-build.sh publie un manifeste `.parts` quand le tarball
 # dépasse 2 Gio (limite GitHub) → on télécharge les parties et on réassemble (cat).
 # Sinon, téléchargement direct du tarball unique (cas des petites plateformes).
-DL_BASE="https://github.com/${FABI_REPO}/releases/download/${FABI_VERSION}"
 if [ -n "${FABI_TARBALL_PATH:-}" ]; then
   if [ ! -f "$FABI_TARBALL_PATH" ]; then
     err "Archive locale introuvable : $FABI_TARBALL_PATH"
@@ -176,11 +227,7 @@ elif [ -z "${FABI_TARBALL_PATH:-}" ]; then
 fi
 if [ -f "$TMP_DIR/fabi.tar.zst.sha256" ]; then
   EXPECTED="$(awk '{print $1}' "$TMP_DIR/fabi.tar.zst.sha256")"
-  if command -v sha256sum >/dev/null 2>&1; then
-    ACTUAL="$(sha256sum "$TMP_DIR/fabi.tar.zst" | awk '{print $1}')"
-  else
-    ACTUAL="$(shasum -a 256 "$TMP_DIR/fabi.tar.zst" | awk '{print $1}')"
-  fi
+  ACTUAL="$(sha256_file "$TMP_DIR/fabi.tar.zst")"
   if [ "$EXPECTED" != "$ACTUAL" ]; then
     err "SHA256 mismatch ! Le fichier est peut-être corrompu ou altéré."
     err "  Attendu : $EXPECTED"
@@ -199,7 +246,8 @@ log "Installation dans ${C_DIM}${INSTALL_ROOT}${C_RESET}"
 
 STAGING_ROOT="$TMP_DIR/install"
 mkdir -p "$STAGING_ROOT"
-tar --use-compress-program=unzstd -xf "$TMP_DIR/fabi.tar.zst" -C "$STAGING_ROOT" --strip-components=1
+"$ZSTD_BIN" -q -f -d "$TMP_DIR/fabi.tar.zst" -o "$TMP_DIR/fabi.tar"
+tar -xf "$TMP_DIR/fabi.tar" -C "$STAGING_ROOT" --strip-components=1
 
 if [ ! -x "$STAGING_ROOT/bin/fabi" ]; then
   err "Le binaire fabi est absent après extraction : $STAGING_ROOT/bin/fabi"

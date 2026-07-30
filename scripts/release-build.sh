@@ -6,6 +6,7 @@
 #   2. Télécharge un Python embarquable (python-build-standalone)
 #   3. Crée un venv Python qui a Parallax installé
 #   4. Pack le tout dans un tarball compressé zstd
+#   5. Produit un petit décompresseur zstd autonome pour l'installation neuve
 #
 # Le tarball final ressemble à :
 #   fabi/
@@ -530,3 +531,9 @@ if [ "$TARBALL_BYTES" -gt "$SPLIT_THRESHOLD_BYTES" ]; then
   rm -f "$TARBALL"   # le tout dépasse 2 Gio : on ne publie que les parties
   ok "Découpé en : $(tr '\n' ' ' < "${TARBALL}.parts")"
 fi
+
+# L'archive ne peut pas contenir son propre décompresseur. Publier ce petit
+# actif séparé permet donc une installation réellement neuve sans dépendance
+# préalable à Homebrew/apt/winget.
+chmod +x "$ROOT/scripts/build-zstd-decompressor.sh"
+"$ROOT/scripts/build-zstd-decompressor.sh" "${PLATFORM_TAG}-${ACCEL}"

@@ -8,6 +8,15 @@ trap 'rm -rf "$test_root"' EXIT
 
 install_root="$test_root/install"
 bin_root="$test_root/bin"
+zstd_helper="$test_root/fabi-unzstd"
+zstd_command="$(command -v zstd)"
+printf '#!/usr/bin/env sh\nexec "%s" "$@"\n' "$zstd_command" > "$zstd_helper"
+chmod +x "$zstd_helper"
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256sum "$zstd_helper" > "$zstd_helper.sha256"
+else
+  shasum -a 256 "$zstd_helper" > "$zstd_helper.sha256"
+fi
 
 build_fixture() {
   local version="$1"
@@ -39,6 +48,7 @@ run_installer() {
   FABI_TARBALL_PATH="$1" \
   FABI_INSTALL="$install_root" \
   FABI_BIN_DIR="$bin_root" \
+  FABI_ZSTD_PATH="$zstd_helper" \
   FABI_NO_PATH=1 \
     "$repo_root/install.sh" >/dev/null
 }
@@ -76,6 +86,18 @@ if run_installer "$bad_archive" 2>/dev/null; then
   printf 'malformed package unexpectedly installed\n' >&2
   exit 1
 fi
+test "$("$install_root/bin/fabi")" = "fabi second"
+test "$(cat "$install_root/network/worker.key")" = "stable-identity"
+
+# A decompressor whose bytes do not match its sidecar must be rejected before
+# the active runtime or persistent state can be touched.
+valid_helper_sha="$(cat "$zstd_helper.sha256")"
+printf '%064d  %s\n' 0 "$(basename "$zstd_helper")" > "$zstd_helper.sha256"
+if run_installer "$second_archive" 2>/dev/null; then
+  printf 'tampered decompressor unexpectedly accepted\n' >&2
+  exit 1
+fi
+printf '%s\n' "$valid_helper_sha" > "$zstd_helper.sha256"
 test "$("$install_root/bin/fabi")" = "fabi second"
 test "$(cat "$install_root/network/worker.key")" = "stable-identity"
 

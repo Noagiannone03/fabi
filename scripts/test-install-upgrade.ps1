@@ -5,6 +5,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $testRoot = Join-Path $env:TEMP "fabi-installer-test-$([guid]::NewGuid().ToString())"
 $installRoot = Join-Path $testRoot "install"
 $fixtureExe = Join-Path $testRoot "fixture.exe"
+$zstdHelper = Join-Path $testRoot "fabi-unzstd.exe"
 
 function Write-Utf8NoBom {
     param([string]$Path, [string]$Value)
@@ -43,6 +44,7 @@ function Invoke-FixtureInstall {
     $env:FABI_INSTALL = $installRoot
     $env:FABI_ACCEL = "cpu"
     $env:FABI_WINDOWS_MODE = "native"
+    $env:FABI_ZSTD_PATH = $zstdHelper
     $env:FABI_NO_PATH = "1"
     & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repoRoot "install.ps1") *> $null
     if ($LASTEXITCODE -ne 0) { throw "fixture install failed with exit code $LASTEXITCODE" }
@@ -55,6 +57,9 @@ public static class FixtureProgram {
     public static int Main(string[] args) { return 0; }
 }
 '@ -OutputAssembly $fixtureExe -OutputType ConsoleApplication
+    Copy-Item -LiteralPath (Get-Command "zstd.exe").Source -Destination $zstdHelper
+    $helperHash = (Get-FileHash -LiteralPath $zstdHelper -Algorithm SHA256).Hash.ToLower()
+    Write-Utf8NoBom "$zstdHelper.sha256" "$helperHash  fabi-unzstd.exe`n"
 
     Invoke-FixtureInstall (New-Fixture "first")
     New-Item -ItemType Directory -Path (Join-Path $installRoot "network") -Force | Out-Null
@@ -100,6 +105,21 @@ public static class FixtureProgram {
     }
     if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw) -ne $before) {
         throw "malformed package changed the active runtime"
+    }
+
+    $validHelperSidecar = Get-Content -LiteralPath "$zstdHelper.sha256" -Raw
+    Write-Utf8NoBom "$zstdHelper.sha256" "$('0' * 64)  fabi-unzstd.exe`n"
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repoRoot "install.ps1") *> $null
+    $tamperedHelperExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    Write-Utf8NoBom "$zstdHelper.sha256" $validHelperSidecar
+    if ($tamperedHelperExitCode -eq 0) {
+        throw "tampered decompressor unexpectedly accepted"
+    }
+    if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw) -ne $before) {
+        throw "tampered decompressor changed the active runtime"
     }
 
     Write-Output "Windows installer upgrade transaction: ok"

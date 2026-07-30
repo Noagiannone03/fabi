@@ -12,6 +12,7 @@
 #   $env:FABI_WINDOWS_MODE  native (default, no WSL) or wsl (legacy)
 #   $env:FABI_WSL_DISTRO    optional WSL distro name (only when FABI_WINDOWS_MODE=wsl)
 #   $env:FABI_TARBALL_PATH  optional local release tarball to install instead of downloading
+#   $env:FABI_ZSTD_PATH     optional local decompressor plus .sha256 sidecar
 #   $env:FABI_NO_PATH       "1" to leave the user PATH unchanged
 #
 # Windows runs Fabi NATIVELY (no WSL): the GPU engine uses the native-Windows vLLM
@@ -77,6 +78,52 @@ function Read-UrlText {
     } finally {
         Remove-Item -LiteralPath $tmp.FullName -Force -ErrorAction SilentlyContinue
     }
+}
+
+function Get-VerifiedZstd {
+    param(
+        [string]$Repo,
+        [string]$Version,
+        [string]$Platform,
+        [string]$TmpDir
+    )
+
+    if ($env:FABI_ZSTD_PATH) {
+        if (-not (Test-Path -LiteralPath $env:FABI_ZSTD_PATH -PathType Leaf) -or
+            -not (Test-Path -LiteralPath "$($env:FABI_ZSTD_PATH).sha256" -PathType Leaf)) {
+            throw "FABI_ZSTD_PATH doit pointer vers un fichier et son sidecar .sha256"
+        }
+        $sourcePath = $env:FABI_ZSTD_PATH
+        $expected = (Get-Content -LiteralPath "$sourcePath.sha256" -Raw).Trim().Split()[0]
+        $zstdPath = Join-Path $TmpDir "fabi-unzstd.exe"
+        Copy-Item -LiteralPath $sourcePath -Destination $zstdPath -Force
+    } else {
+        $systemZstd = Get-Command "zstd.exe" -ErrorAction SilentlyContinue
+        if ($systemZstd) {
+            return $systemZstd.Source
+        }
+
+        $helperName = "fabi-unzstd-${Platform}.exe"
+        $helperUrl = "https://github.com/${Repo}/releases/download/${Version}/${helperName}"
+        $zstdPath = Join-Path $TmpDir $helperName
+        Write-Log "zstd absent -> telechargement du decompresseur autonome..."
+        Save-UrlFile -Uri $helperUrl -OutFile $zstdPath
+        try {
+            $expected = (Read-UrlText -Uri "${helperUrl}.sha256").Trim().Split()[0]
+        } catch {
+            throw "Checksum du decompresseur autonome absent : ${helperUrl}.sha256"
+        }
+    }
+
+    if ($expected -notmatch "^[0-9a-fA-F]{64}$") {
+        throw "SHA256 invalide pour le decompresseur autonome"
+    }
+    $actual = (Get-FileHash -LiteralPath $zstdPath -Algorithm SHA256).Hash.ToLower()
+    if ($actual -ne $expected.ToLower()) {
+        throw "SHA256 mismatch pour le decompresseur autonome. Attendu: $expected, Recu: $actual"
+    }
+    Write-Ok "Decompresseur autonome verifie"
+    return $zstdPath
 }
 
 function Get-FabiRepo {
@@ -392,14 +439,10 @@ function Install-NativeFabi {
             })
         }
 
-        if (-not (Get-Command "zstd.exe" -ErrorAction SilentlyContinue)) {
-            Write-Err "zstd.exe n'est pas disponible. Installe: winget install Facebook.Zstandard"
-            exit 1
-        }
-
+        $zstdPath = Get-VerifiedZstd -Repo $Repo -Version $Version -Platform $platform -TmpDir $tmpDir
         $stagingRoot = Join-Path $tmpDir "install"
         New-Item -Type Directory -Path $stagingRoot -Force | Out-Null
-        & zstd.exe -q -f -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
+        & $zstdPath -q -f -d "$tarballPath" -o (Join-Path $tmpDir "fabi.tar")
         if ($LASTEXITCODE -ne 0) { throw "Echec de decompression du paquet Fabi" }
         & tar.exe -xf (Join-Path $tmpDir "fabi.tar") -C $stagingRoot --strip-components=1
         if ($LASTEXITCODE -ne 0) { throw "Echec d'extraction du paquet Fabi" }
