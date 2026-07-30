@@ -87,8 +87,15 @@ public static class FixtureProgram {
     $badArchive = New-Fixture "bad" $false
     $before = (Get-Content (Join-Path $installRoot "MANIFEST") -Raw)
     $env:FABI_TARBALL_PATH = $badArchive
+    # Windows PowerShell 5 matérialise le stderr du processus enfant comme des
+    # ErrorRecord. Cette invocation doit précisément échouer : capture son code
+    # sans laisser ErrorActionPreference masquer les assertions de rollback.
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repoRoot "install.ps1") *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $badInstallExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    if ($badInstallExitCode -eq 0) {
         throw "malformed package unexpectedly installed"
     }
     if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw) -ne $before) {
