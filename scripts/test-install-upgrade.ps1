@@ -106,3 +106,4 @@ public static class FixtureProgram {
 } finally {
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+exit 0
