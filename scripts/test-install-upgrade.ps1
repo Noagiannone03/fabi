@@ -89,6 +89,18 @@ public static class FixtureProgram {
         throw "previous managed runtime backup is missing"
     }
 
+    Invoke-FixtureInstall (New-Fixture "third")
+    if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw).Trim() -ne "fabi third") {
+        throw "third managed runtime was not activated"
+    }
+    $backups = @(Get-ChildItem $testRoot -Directory -Filter "install.backup-*")
+    if ($backups.Count -ne 1) {
+        throw "expected one retained rollback, got $($backups.Count)"
+    }
+    if ((Get-Content (Join-Path $backups[0].FullName "MANIFEST") -Raw).Trim() -ne "fabi second") {
+        throw "retained rollback is not the immediately previous runtime"
+    }
+
     $badArchive = New-Fixture "bad" $false
     $before = (Get-Content (Join-Path $installRoot "MANIFEST") -Raw)
     $env:FABI_TARBALL_PATH = $badArchive

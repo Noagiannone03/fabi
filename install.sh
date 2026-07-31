@@ -328,6 +328,19 @@ mkdir -p "$INSTALL_ROOT"
 BACKUP="${INSTALL_ROOT}.backup-$(date +%s)-$$"
 mkdir -p "$BACKUP"
 BACKUP_USED=0
+
+prune_stale_runtime_backups() {
+  keep="$1"
+  for candidate in "${INSTALL_ROOT}".backup-*; do
+    [ -d "$candidate" ] || continue
+    [ -L "$candidate" ] && continue
+    [ "$candidate" = "$keep" ] && continue
+    if ! rm -rf -- "$candidate"; then
+      warn "Impossible de supprimer l'ancien rollback : $candidate"
+    fi
+  done
+}
+
 while IFS= read -r managed; do
   [ -z "$managed" ] && continue
   if [ -e "$INSTALL_ROOT/$managed" ] || [ -L "$INSTALL_ROOT/$managed" ]; then
@@ -381,6 +394,10 @@ fi
 
 if [ "$BACKUP_USED" -eq 1 ]; then
   warn "Ancien runtime sauvegardé dans $BACKUP"
+  # L'activation et les imports ont réussi : ce backup est désormais l'unique
+  # rollback utile. Les états non gérés vivent sous INSTALL_ROOT et ne sont
+  # présents dans aucun de ces dossiers.
+  prune_stale_runtime_backups "$BACKUP"
 else
   rmdir "$BACKUP"
 fi

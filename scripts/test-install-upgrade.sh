@@ -71,6 +71,17 @@ test "$(cat "$install_root/runtime/runtime-path.txt")" = "$install_root/runtime"
 test "$(readlink "$bin_root/fabi")" = "$install_root/bin/fabi"
 find "$test_root" -maxdepth 1 -type d -name 'install.backup-*' | grep -q .
 
+# A third successful activation keeps the immediately previous runtime and
+# removes every older managed-runtime rollback.
+third_archive="$(build_fixture third)"
+run_installer "$third_archive"
+test "$("$install_root/bin/fabi")" = "fabi third"
+test "$(cat "$install_root/network/worker.key")" = "stable-identity"
+backup_count="$(find "$test_root" -maxdepth 1 -type d -name 'install.backup-*' | wc -l | tr -d ' ')"
+test "$backup_count" = "1"
+kept_backup="$(find "$test_root" -maxdepth 1 -type d -name 'install.backup-*')"
+test "$("$kept_backup/bin/fabi")" = "fabi second"
+
 # A malformed package must fail before touching either managed or persistent
 # state from the working installation.
 bad_root="$test_root/package-bad"
@@ -86,19 +97,19 @@ if run_installer "$bad_archive" 2>/dev/null; then
   printf 'malformed package unexpectedly installed\n' >&2
   exit 1
 fi
-test "$("$install_root/bin/fabi")" = "fabi second"
+test "$("$install_root/bin/fabi")" = "fabi third"
 test "$(cat "$install_root/network/worker.key")" = "stable-identity"
 
 # A decompressor whose bytes do not match its sidecar must be rejected before
 # the active runtime or persistent state can be touched.
 valid_helper_sha="$(cat "$zstd_helper.sha256")"
 printf '%064d  %s\n' 0 "$(basename "$zstd_helper")" > "$zstd_helper.sha256"
-if run_installer "$second_archive" 2>/dev/null; then
+if run_installer "$third_archive" 2>/dev/null; then
   printf 'tampered decompressor unexpectedly accepted\n' >&2
   exit 1
 fi
 printf '%s\n' "$valid_helper_sha" > "$zstd_helper.sha256"
-test "$("$install_root/bin/fabi")" = "fabi second"
+test "$("$install_root/bin/fabi")" = "fabi third"
 test "$(cat "$install_root/network/worker.key")" = "stable-identity"
 
 printf 'installer upgrade transaction: ok\n'

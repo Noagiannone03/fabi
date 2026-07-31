@@ -27,6 +27,30 @@ function Write-Ok($msg)   { Write-Host "[fabi-install] $msg" -ForegroundColor Gr
 function Write-Warn($msg) { Write-Warning "[fabi-install] $msg" }
 function Write-Err($msg)  { Write-Host "[fabi-install] $msg" -ForegroundColor Red }
 
+function Remove-StaleRuntimeBackups {
+    param(
+        [Parameter(Mandatory = $true)][string]$InstallRoot,
+        [Parameter(Mandatory = $true)][string]$Keep
+    )
+    $parent = Split-Path -Parent $InstallRoot
+    $prefix = "$(Split-Path -Leaf $InstallRoot).backup-"
+    $keepFull = [System.IO.Path]::GetFullPath($Keep)
+    Get-ChildItem -LiteralPath $parent -Directory -Force -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name.StartsWith($prefix, [System.StringComparison]::Ordinal) -and
+            -not ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+        } |
+        ForEach-Object {
+            if ([System.IO.Path]::GetFullPath($_.FullName) -ne $keepFull) {
+                try {
+                    Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
+                } catch {
+                    Write-Warn "Impossible de supprimer l'ancien rollback : $($_.FullName)"
+                }
+            }
+        }
+}
+
 function Save-UrlFile {
     param(
         [Parameter(Mandatory = $true)][string]$Uri,
@@ -517,6 +541,10 @@ function Install-NativeFabi {
         }
         if ($backupUsed) {
             Write-Warn "Ancien runtime sauvegarde dans $backup"
+            # Les imports du nouveau runtime ont réussi. Conserver uniquement
+            # cette version précédente ; les identités et états V3 ne sont
+            # jamais déplacés dans les backups de chemins gérés.
+            Remove-StaleRuntimeBackups -InstallRoot $InstallRoot -Keep $backup
         } else {
             Remove-Item -LiteralPath $backup -Force
         }
