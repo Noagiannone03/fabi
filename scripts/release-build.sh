@@ -26,7 +26,7 @@
 #   PYTHON_BUILD_TAG   release tag de python-build-standalone (défaut: 20241016)
 #   PARALLAX_SOURCE    path local ou spec pip pour parallax (défaut: ../packages/swarm-engine)
 #   PARALLAX_EXTRA     extra pip forcé pour parallax (défaut: auto selon accel)
-#   VLLM_RS_REF        commit vLLM immuable pour le frontend Rust POSIX
+#   VLLM_RS_REF        commit vLLM immuable pour le frontend Rust multi-OS
 #   VLLM_MINIJINJA_VERSION version MiniJinja compatible avec ce frontend
 #   FABI_SKIP_PARALLAX  si "1", skip le venv parallax (utile pour test build fabi seul)
 
@@ -370,26 +370,28 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   ok "Transport Iroh/libp2p natif $NATIVE_NETWORK_VERSION compilé, installé et importé"
 
   # Le frontend HTTP officiel n'est pas un paquet Python : Parallax le compile
-  # séparément depuis les sources Rust de vLLM. Sans ce binaire, un worker POSIX
-  # annonce supports_frontend=false et aucune pipeline ne peut recevoir la
-  # couche zéro. Réutiliser le builder Parallax évite de dupliquer ce contrat.
-  if [[ "$PBS_ARCH" != *windows* ]]; then
-    log "(3.4/4) Compilation du frontend Rust vllm-rs…"
-    PARALLAX_VENV_DIR="$PKG_DIR/runtime/parallax-venv" \
-    VLLM_REF="$VLLM_RS_REF" \
-    VLLM_MINIJINJA_VERSION="$VLLM_MINIJINJA_VERSION" \
-      "$SWARM_ENGINE_DIR/install.sh" --frontend-only
+  # séparément depuis les sources Rust de vLLM. Le patch Fabi conserve
+  # l'héritage atomique de fd sur POSIX et utilise le bind TCP natif sur
+  # Windows. Toutes les plateformes peuvent ainsi héberger la couche zéro avec
+  # les mêmes contrats SSE, abort, outils et replay exact.
+  log "(3.4/4) Compilation du frontend Rust vllm-rs…"
+  PARALLAX_VENV_DIR="$PKG_DIR/runtime/parallax-venv" \
+  VLLM_REF="$VLLM_RS_REF" \
+  VLLM_MINIJINJA_VERSION="$VLLM_MINIJINJA_VERSION" \
+    "$SWARM_ENGINE_DIR/install.sh" --frontend-only
 
-    VLLM_RS_BIN="$PKG_DIR/runtime/parallax-venv/bin/vllm-rs"
-    if [ ! -x "$VLLM_RS_BIN" ]; then
-      err "Le frontend Rust vllm-rs est absent après compilation : $VLLM_RS_BIN"
-      exit 1
-    fi
-    "$VLLM_RS_BIN" --help >/dev/null
-    "$VENV_PY" -c \
-      'from parallax.server.vllm_rust_frontend import vllm_rust_frontend_available; assert vllm_rust_frontend_available()'
-    ok "Frontend Rust vllm-rs exécutable et détecté par Parallax"
+  VLLM_RS_BIN="$PKG_DIR/runtime/parallax-venv/bin/vllm-rs"
+  if [[ "$PBS_ARCH" == *windows* ]]; then
+    VLLM_RS_BIN="$PKG_DIR/runtime/parallax-venv/Scripts/vllm-rs.exe"
   fi
+  if [ ! -x "$VLLM_RS_BIN" ]; then
+    err "Le frontend Rust vllm-rs est absent après compilation : $VLLM_RS_BIN"
+    exit 1
+  fi
+  "$VLLM_RS_BIN" --help >/dev/null
+  "$VENV_PY" -c \
+    'from parallax.server.vllm_rust_frontend import vllm_rust_frontend_available; assert vllm_rust_frontend_available()'
+  ok "Frontend Rust vllm-rs exécutable et détecté par Parallax"
 
   # Rendre les symlinks Python du venv relocatables.
   #
