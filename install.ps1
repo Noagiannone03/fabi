@@ -89,7 +89,22 @@ function Save-UrlFile {
         }
     }
 
-    Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+    $attempts = 6
+    for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+        try {
+            # Boucle explicite pour rester compatible avec Windows PowerShell
+            # 5.1, qui ne possède pas encore MaximumRetryCount.
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+            return
+        } catch {
+            if ($attempt -eq $attempts) {
+                throw
+            }
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            Write-Warn "Telechargement interrompu, nouvelle tentative $($attempt + 1)/$attempts : $Uri"
+            Start-Sleep -Seconds ([Math]::Min(30, 2 * $attempt))
+        }
+    }
 }
 
 function Read-UrlText {

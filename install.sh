@@ -35,6 +35,15 @@ ok()   { printf "%s[fabi-install]%s %s\n" "$C_GREEN" "$C_RESET" "$1"; }
 warn() { printf "%s[fabi-install]%s %s\n" "$C_YELLOW" "$C_RESET" "$1" >&2; }
 err()  { printf "%s[fabi-install]%s %s\n" "$C_RED"   "$C_RESET" "$1" >&2; }
 
+# Tous les transferts sont des GET idempotents. curl sait reconnaître les
+# erreurs transitoires (timeouts, HTTP 408/429/5xx) et respecte Retry-After ;
+# borner la fenêtre évite à la fois l'échec sur un incident GitHub ponctuel et
+# une installation qui attendrait indéfiniment sur une liaison réellement
+# coupée. --retry-connrefused couvre aussi un endpoint/CDN qui redémarre.
+curl_fabi() {
+  curl --retry 5 --retry-max-time 180 --retry-connrefused "$@"
+}
+
 # ---------------------------------------------------------------------------
 # Banner
 # ---------------------------------------------------------------------------
@@ -100,7 +109,7 @@ FABI_VERSION="${FABI_VERSION:-latest}"
 if [ "$FABI_VERSION" = "latest" ]; then
   log "Résolution de la dernière version…"
   FABI_VERSION="$(
-    curl -fsSL "https://api.github.com/repos/${FABI_REPO}/releases/latest" \
+    curl_fabi -fsSL "https://api.github.com/repos/${FABI_REPO}/releases/latest" \
       | grep '"tag_name"' \
       | head -1 \
       | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/'
@@ -171,11 +180,11 @@ else
   ZSTD_HELPER_NAME="fabi-unzstd-${PLATFORM}"
   ZSTD_HELPER_URL="${DL_BASE}/${ZSTD_HELPER_NAME}"
   log "zstd absent → téléchargement du décompresseur autonome…"
-  if ! curl -fL --progress-bar "$ZSTD_HELPER_URL" -o "$TMP_DIR/fabi-unzstd"; then
+  if ! curl_fabi -fL --progress-bar "$ZSTD_HELPER_URL" -o "$TMP_DIR/fabi-unzstd"; then
     err "Décompresseur autonome absent de la release : $ZSTD_HELPER_URL"
     exit 1
   fi
-  if ! curl -fsSL "${ZSTD_HELPER_URL}.sha256" -o "$TMP_DIR/fabi-unzstd.sha256"; then
+  if ! curl_fabi -fsSL "${ZSTD_HELPER_URL}.sha256" -o "$TMP_DIR/fabi-unzstd.sha256"; then
     err "Checksum du décompresseur autonome absent"
     exit 1
   fi
@@ -195,14 +204,14 @@ if [ -n "${FABI_TARBALL_PATH:-}" ]; then
   fi
   log "Archive locale : ${C_DIM}${FABI_TARBALL_PATH}${C_RESET}"
   cp "$FABI_TARBALL_PATH" "$TMP_DIR/fabi.tar.zst"
-elif curl -fsSL "${TARBALL_URL}.parts" -o "$TMP_DIR/parts.txt" 2>/dev/null; then
+elif curl_fabi -fsSL "${TARBALL_URL}.parts" -o "$TMP_DIR/parts.txt" 2>/dev/null; then
   log "Asset volumineux → téléchargement en parties + réassemblage…"
   : > "$TMP_DIR/fabi.tar.zst"
   while IFS= read -r part; do
     part="$(printf '%s' "$part" | tr -d '\r' | tr -d ' ')"
     [ -z "$part" ] && continue
     log "  partie : ${C_DIM}${part}${C_RESET}"
-    if ! curl -fL --progress-bar "${DL_BASE}/${part}" -o "$TMP_DIR/part"; then
+    if ! curl_fabi -fL --progress-bar "${DL_BASE}/${part}" -o "$TMP_DIR/part"; then
       err "Échec du téléchargement de la partie : ${DL_BASE}/${part}"
       exit 1
     fi
@@ -211,7 +220,7 @@ elif curl -fsSL "${TARBALL_URL}.parts" -o "$TMP_DIR/parts.txt" 2>/dev/null; then
   done < "$TMP_DIR/parts.txt"
 else
   log "Téléchargement : ${C_DIM}${TARBALL_URL}${C_RESET}"
-  if ! curl -fL --progress-bar "$TARBALL_URL" -o "$TMP_DIR/fabi.tar.zst"; then
+  if ! curl_fabi -fL --progress-bar "$TARBALL_URL" -o "$TMP_DIR/fabi.tar.zst"; then
     err "Échec du téléchargement. Vérifie l'URL et que la release publie bien ce tarball pour ta plateforme."
     err "  → $TARBALL_URL"
     exit 1
@@ -223,7 +232,7 @@ log "Vérification SHA256…"
 if [ -n "${FABI_TARBALL_PATH:-}" ] && [ -f "${FABI_TARBALL_PATH}.sha256" ]; then
   cp "${FABI_TARBALL_PATH}.sha256" "$TMP_DIR/fabi.tar.zst.sha256"
 elif [ -z "${FABI_TARBALL_PATH:-}" ]; then
-  curl -fsSL "$SHA_URL" -o "$TMP_DIR/fabi.tar.zst.sha256" 2>/dev/null || true
+  curl_fabi -fsSL "$SHA_URL" -o "$TMP_DIR/fabi.tar.zst.sha256" 2>/dev/null || true
 fi
 if [ -f "$TMP_DIR/fabi.tar.zst.sha256" ]; then
   EXPECTED="$(awk '{print $1}' "$TMP_DIR/fabi.tar.zst.sha256")"
