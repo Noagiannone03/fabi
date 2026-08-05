@@ -55,10 +55,11 @@ export function connectionProfileFromEnvironment(
   }
   return {
     protocolVersion: 3,
-    // Schema 2 introduced the explicit per-session max_context_tokens lease
-    // contract. Keep this independent from the product's V3 protocol name so
-    // future breaking catalogue changes fail before a worker joins the DHT.
-    catalogSchemaVersion: 2,
+    // Schema 2 introduced max_context_tokens on leases. Schema 3 requires the
+    // TUF-signed model context ceiling and service classes. Keep this epoch
+    // independent from the product's V3 protocol name so an older desktop
+    // fails before starting a worker against an incompatible signed bundle.
+    catalogSchemaVersion: 3,
     transport: "iroh",
     relayUrl,
     enrollmentUrl,

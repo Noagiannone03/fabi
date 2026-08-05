@@ -16,7 +16,7 @@ describe("connectionProfileFromEnvironment", () => {
   test("publishes a complete secret-free V3 contract", () => {
     expect(connectionProfileFromEnvironment(VALID)).toEqual({
       protocolVersion: 3,
-      catalogSchemaVersion: 2,
+      catalogSchemaVersion: 3,
       transport: "iroh",
       relayUrl: "https://relay.example:4443",
       enrollmentUrl: "https://registry.example/v1/network/enroll",
