@@ -41,11 +41,20 @@ function Remove-StaleRuntimeBackups {
             -not ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
         } |
         ForEach-Object {
-            if ([System.IO.Path]::GetFullPath($_.FullName) -ne $keepFull) {
+            # Dans un bloc catch, la variable automatique `$_` devient
+            # l'ErrorRecord. Capturer le chemin avant la suppression évite un
+            # diagnostic vide et conserve la vraie cible en cas de verrou ou
+            # de limite Windows sur un ancien environnement Python profond.
+            $backupPath = [System.IO.Path]::GetFullPath($_.FullName)
+            if ($backupPath -ne $keepFull) {
                 try {
-                    Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
+                    Remove-Item -LiteralPath $backupPath -Recurse -Force -ErrorAction Stop
                 } catch {
-                    Write-Warn "Impossible de supprimer l'ancien rollback : $($_.FullName)"
+                    Write-Warn (
+                        "Impossible de supprimer l'ancien rollback {0} : {1}" -f
+                        $backupPath,
+                        $_.Exception.Message
+                    )
                 }
             }
         }

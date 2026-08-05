@@ -101,6 +101,43 @@ public static class FixtureProgram {
         throw "retained rollback is not the immediately previous runtime"
     }
 
+    # Une ancienne sauvegarde peut être verrouillée par Windows (antivirus,
+    # indexeur ou processus retardataire). L'installation courante doit quand
+    # même réussir, mais son avertissement doit nommer exactement la cible au
+    # lieu de perdre le chemin lorsque `$_` devient l'ErrorRecord du catch.
+    $lockedBackup = Join-Path $testRoot "install.backup-locked"
+    $lockedFile = Join-Path $lockedBackup "locked.bin"
+    New-Item -ItemType Directory -Path $lockedBackup -Force | Out-Null
+    Write-Utf8NoBom $lockedFile "locked`n"
+    $lockedStream = [System.IO.File]::Open(
+        $lockedFile,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None
+    )
+    try {
+        $env:FABI_TARBALL_PATH = New-Fixture "fourth"
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $cleanupDiagnostics = @(
+            & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repoRoot "install.ps1") *>&1
+        )
+        $cleanupInstallExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $previousErrorActionPreference
+        if ($cleanupInstallExitCode -ne 0) {
+            throw "upgrade with a locked stale rollback failed with exit code $cleanupInstallExitCode"
+        }
+        if (($cleanupDiagnostics | Out-String) -notmatch [regex]::Escape($lockedBackup)) {
+            throw "locked rollback warning did not preserve its exact path"
+        }
+        if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw).Trim() -ne "fabi fourth") {
+            throw "upgrade with a locked stale rollback did not activate the new runtime"
+        }
+    } finally {
+        $lockedStream.Dispose()
+        Remove-Item -LiteralPath $lockedBackup -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     $badArchive = New-Fixture "bad" $false
     $before = (Get-Content (Join-Path $installRoot "MANIFEST") -Raw)
     $env:FABI_TARBALL_PATH = $badArchive
