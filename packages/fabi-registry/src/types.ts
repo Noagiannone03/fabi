@@ -13,6 +13,8 @@
 export interface WorkerConnectionProfile {
   /** Contract version understood by the worker bootstrapper. */
   protocolVersion: 3
+  /** Version of the signed DHT membership payloads (offers, leases and links). */
+  catalogSchemaVersion: 2
   transport: "iroh"
   /** Public Iroh relay URL. No shared token is distributed. */
   relayUrl: string
