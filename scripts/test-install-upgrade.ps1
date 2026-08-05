@@ -127,8 +127,16 @@ public static class FixtureProgram {
         if ($cleanupInstallExitCode -ne 0) {
             throw "upgrade with a locked stale rollback failed with exit code $cleanupInstallExitCode"
         }
-        if (($cleanupDiagnostics | Out-String) -notmatch [regex]::Escape($lockedBackup)) {
-            throw "locked rollback warning did not preserve its exact path. Diagnostics: $($cleanupDiagnostics | Out-String)"
+        $cleanupDiagnosticText = $cleanupDiagnostics | Out-String
+        # Windows peut développer le segment TEMP 8.3 (RUNNER~1) vers son nom
+        # long (runneradmin) dans le processus enfant. Vérifier l'identité
+        # stable de la cible et du fichier verrouillé, pas cette représentation
+        # de chemin propre à la machine.
+        if (
+            $cleanupDiagnosticText -notmatch [regex]::Escape((Split-Path -Leaf $lockedBackup)) -or
+            $cleanupDiagnosticText -notmatch [regex]::Escape((Split-Path -Leaf $lockedFile))
+        ) {
+            throw "locked rollback warning did not preserve its target and cause. Diagnostics: $cleanupDiagnosticText"
         }
         if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw).Trim() -ne "fabi fourth") {
             throw "upgrade with a locked stale rollback did not activate the new runtime"
