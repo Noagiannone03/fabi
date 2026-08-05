@@ -128,7 +128,7 @@ public static class FixtureProgram {
             throw "upgrade with a locked stale rollback failed with exit code $cleanupInstallExitCode"
         }
         if (($cleanupDiagnostics | Out-String) -notmatch [regex]::Escape($lockedBackup)) {
-            throw "locked rollback warning did not preserve its exact path"
+            throw "locked rollback warning did not preserve its exact path. Diagnostics: $($cleanupDiagnostics | Out-String)"
         }
         if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw).Trim() -ne "fabi fourth") {
             throw "upgrade with a locked stale rollback did not activate the new runtime"
