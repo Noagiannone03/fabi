@@ -62,7 +62,15 @@ function Remove-ManagedDirectoryTree {
                 $providerError.Exception.Message
             )
         }
-        [System.IO.Directory]::Delete($Path, $false)
+        try {
+            [System.IO.Directory]::Delete($Path, $false)
+        } catch {
+            throw (
+                "native root removal failed: {0}; PowerShell provider: {1}" -f
+                $_.Exception.Message,
+                $providerError.Exception.Message
+            )
+        }
         if (Test-Path -LiteralPath $Path) {
             throw "managed backup root is still present after cleanup"
         }
