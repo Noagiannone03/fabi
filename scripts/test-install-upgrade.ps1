@@ -89,6 +89,25 @@ public static class FixtureProgram {
         throw "previous managed runtime backup is missing"
     }
 
+    # Windows PowerShell 5 may fail to recursively remove deep CUDA/Python
+    # package trees even when Windows itself supports extended paths. Create a
+    # stale managed rollback whose leaf is beyond MAX_PATH and prove that the
+    # installer retention path removes it without changing machine policy.
+    $longBackup = Join-Path $testRoot "install.backup-long-path"
+    $longCursor = $longBackup
+    1..8 | ForEach-Object {
+        $longCursor = Join-Path $longCursor ("segment-{0}-{1}" -f $_, ("x" * 32))
+    }
+    $extendedLongCursor = "\\?\$longCursor"
+    [System.IO.Directory]::CreateDirectory($extendedLongCursor) | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $extendedLongCursor "cuda-header.hpp"),
+        "fixture`n"
+    )
+    if ((Join-Path $longCursor "cuda-header.hpp").Length -le 260) {
+        throw "long-path rollback fixture did not exceed MAX_PATH"
+    }
+
     Invoke-FixtureInstall (New-Fixture "third")
     if ((Get-Content (Join-Path $installRoot "MANIFEST") -Raw).Trim() -ne "fabi third") {
         throw "third managed runtime was not activated"
@@ -99,6 +118,9 @@ public static class FixtureProgram {
     }
     if ((Get-Content (Join-Path $backups[0].FullName "MANIFEST") -Raw).Trim() -ne "fabi second") {
         throw "retained rollback is not the immediately previous runtime"
+    }
+    if (Test-Path -LiteralPath $longBackup) {
+        throw "stale long-path rollback was not removed"
     }
 
     # Une ancienne sauvegarde peut être verrouillée par Windows (antivirus,

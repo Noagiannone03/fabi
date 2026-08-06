@@ -27,6 +27,50 @@ function Write-Ok($msg)   { Write-Host "[fabi-install] $msg" -ForegroundColor Gr
 function Write-Warn($msg) { Write-Warning "[fabi-install] $msg" }
 function Write-Err($msg)  { Write-Host "[fabi-install] $msg" -ForegroundColor Red }
 
+function Remove-ManagedDirectoryTree {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    try {
+        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        return
+    } catch {
+        $providerError = $_
+    }
+
+    # Windows PowerShell 5's FileSystem provider can still fail below MAX_PATH
+    # in CUDA/Python trees even on a long-path-enabled host. Robocopy is part of
+    # supported Windows releases and uses native extended-path traversal. An
+    # empty mirror removes the descendants; Directory.Delete then removes only
+    # the already-validated managed backup root.
+    $robocopy = Get-Command "robocopy.exe" -ErrorAction SilentlyContinue
+    if (-not $robocopy) {
+        throw $providerError
+    }
+    $empty = Join-Path ([System.IO.Path]::GetTempPath()) (
+        "fabi-empty-{0}-{1}" -f $PID, [guid]::NewGuid().ToString("N")
+    )
+    New-Item -ItemType Directory -Path $empty -Force -ErrorAction Stop | Out-Null
+    try {
+        & $robocopy.Source $empty $Path /MIR /R:0 /W:0 /NFL /NDL /NJH /NJS /NP | Out-Null
+        $robocopyExitCode = $LASTEXITCODE
+        # Robocopy documents 0..7 as success states; 8+ means at least one
+        # copy/delete failure (for example an actually locked runtime file).
+        if ($robocopyExitCode -gt 7) {
+            throw (
+                "robocopy failed with exit code {0}; PowerShell provider: {1}" -f
+                $robocopyExitCode,
+                $providerError.Exception.Message
+            )
+        }
+        [System.IO.Directory]::Delete($Path, $false)
+        if (Test-Path -LiteralPath $Path) {
+            throw "managed backup root is still present after cleanup"
+        }
+    } finally {
+        Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Remove-StaleRuntimeBackups {
     param(
         [Parameter(Mandatory = $true)][string]$InstallRoot,
@@ -48,7 +92,7 @@ function Remove-StaleRuntimeBackups {
             $backupPath = [System.IO.Path]::GetFullPath($_.FullName)
             if ($backupPath -ne $keepFull) {
                 try {
-                    Remove-Item -LiteralPath $backupPath -Recurse -Force -ErrorAction Stop
+                    Remove-ManagedDirectoryTree -Path $backupPath
                 } catch {
                     Write-Warn (
                         "Impossible de supprimer l'ancien rollback {0} : {1}" -f
