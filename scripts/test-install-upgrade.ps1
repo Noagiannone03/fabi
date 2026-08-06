@@ -99,9 +99,10 @@ public static class FixtureProgram {
         $longCursor = Join-Path $longCursor ("segment-{0}-{1}" -f $_, ("x" * 32))
     }
     $extendedLongCursor = "\\?\$longCursor"
+    $extendedLongFile = "$extendedLongCursor\cuda-header.hpp"
     [System.IO.Directory]::CreateDirectory($extendedLongCursor) | Out-Null
     [System.IO.File]::WriteAllText(
-        (Join-Path $extendedLongCursor "cuda-header.hpp"),
+        $extendedLongFile,
         "fixture`n"
     )
     if ((Join-Path $longCursor "cuda-header.hpp").Length -le 260) {
