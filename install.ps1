@@ -241,6 +241,19 @@ function Get-InstallRoot {
     return (Join-Path $env:LOCALAPPDATA "fabi")
 }
 
+function New-InstallTransactionDirectory {
+    param([Parameter(Mandatory = $true)][string]$InstallRoot)
+
+    $absoluteRoot = [System.IO.Path]::GetFullPath($InstallRoot)
+    $parent = [System.IO.Path]::GetDirectoryName($absoluteRoot)
+    if ([string]::IsNullOrWhiteSpace($parent)) {
+        throw "FABI_INSTALL doit designer un repertoire, pas la racine d'un volume"
+    }
+    [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+    $transactionRoot = Join-Path $parent (".fabi-install-{0}" -f [guid]::NewGuid())
+    return New-Item -ItemType Directory -Path $transactionRoot
+}
+
 function Test-NvidiaGpu {
     return [bool](Get-Command "nvidia-smi.exe" -ErrorAction SilentlyContinue)
 }
@@ -485,7 +498,11 @@ function Install-NativeFabi {
 
     Assert-InstallRootIdle -InstallRoot $InstallRoot
 
-    $tmpDir = New-Item -Type Directory -Path (Join-Path $env:TEMP "fabi-install-$([guid]::NewGuid().ToString())")
+    # Keep extraction and activation on the target volume. PowerShell's
+    # FileSystem provider moves directories only within one drive; staging in
+    # %TEMP% would turn a custom D:\ install into a failing cross-volume move
+    # instead of the intended atomic rename transaction.
+    $tmpDir = New-InstallTransactionDirectory -InstallRoot $InstallRoot
     try {
         $tarballPath = Join-Path $tmpDir "fabi.tar.zst"
         $dlBase = "https://github.com/${Repo}/releases/download/${Version}"
@@ -641,7 +658,13 @@ function Install-NativeFabi {
         Add-ToUserPath (Join-Path $InstallRoot "bin")
         Write-Ok "Fabi $Version installe en mode Windows natif"
     } finally {
-        Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $tmpDir) {
+            try {
+                Remove-ManagedDirectoryTree -Path $tmpDir
+            } catch {
+                Write-Warn "Impossible de nettoyer le staging $tmpDir : $($_.Exception.Message)"
+            }
+        }
     }
 }
 

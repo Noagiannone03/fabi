@@ -6,6 +6,7 @@ $testRoot = Join-Path $env:TEMP "fabi-installer-test-$([guid]::NewGuid().ToStrin
 $installRoot = Join-Path $testRoot "install"
 $fixtureExe = Join-Path $testRoot "fixture.exe"
 $zstdHelper = Join-Path $testRoot "fabi-unzstd.exe"
+$substDrive = $null
 
 function Write-Utf8NoBom {
     param([string]$Path, [string]$Value)
@@ -52,6 +53,19 @@ function Invoke-FixtureInstall {
 
 try {
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+    $substDrive = @("R:", "S:", "T:", "U:") |
+        Where-Object { -not (Test-Path "$_\") } |
+        Select-Object -First 1
+    if (-not $substDrive) { throw "no free drive letter for cross-volume installer test" }
+    & subst.exe $substDrive $testRoot
+    if ($LASTEXITCODE -ne 0) { throw "failed to create installer test drive $substDrive" }
+    $installRoot = "$substDrive\install"
+    if (
+        [System.IO.Path]::GetPathRoot($installRoot) -eq
+        [System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($env:TEMP))
+    ) {
+        throw "installer transaction fixture is not exercising a distinct drive"
+    }
     Add-Type -TypeDefinition @'
 public static class FixtureProgram {
     public static int Main(string[] args) { return 0; }
@@ -205,6 +219,9 @@ public static class FixtureProgram {
 
     Write-Output "Windows installer upgrade transaction: ok"
 } finally {
+    if ($substDrive) {
+        & subst.exe $substDrive /D 2>$null
+    }
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 exit 0
