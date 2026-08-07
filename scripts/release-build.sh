@@ -119,6 +119,7 @@ echo
 
 rm -rf "$PKG_DIR" "$TARBALL"
 mkdir -p "$PKG_DIR/bin" "$PKG_DIR/runtime"
+cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$PKG_DIR/"
 
 # 1. Binaire fabi via le script de build officiel d'OpenCode (qui fait tout
 # le boilerplate : génère models-snapshot, bundle le worker TUI, embed les
@@ -573,6 +574,8 @@ cat > "$PKG_DIR/.fabi-managed-paths" <<'EOF'
 bin
 runtime
 MANIFEST
+LICENSE
+NOTICE
 .fabi-managed-paths
 EOF
 

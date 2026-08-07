@@ -43,7 +43,22 @@ sont également documentées dans le fichier NOTICE de ce sous-dossier au fur et
 à mesure qu'elles sont introduites.
 
 ---------------------------------------------------------------------
-3. Code intégration et méta-projet
+3. Mesh-LLM / Skippy
+---------------------------------------------------------------------
+
+Repo upstream : https://github.com/Mesh-LLM/mesh-llm
+Auteurs : contributeurs Mesh-LLM
+Licence : Apache License, Version 2.0
+
+Les archives Fabi pour workers communautaires embarquent les bibliothèques
+natives Skippy/llama.cpp publiées par Mesh-LLM. La release, la révision, l'ABI
+et les SHA-256 exacts sont consignés dans
+scripts/skippy-native-runtime-lock.json. Fabi ajoute une frontière de chargement
+vérifiée, ses contrats de modèle signés et son orchestration P2P; il ne
+revendique pas la paternité des kernels Mesh-LLM/Skippy.
+
+---------------------------------------------------------------------
+4. Code intégration et méta-projet
 ---------------------------------------------------------------------
 
 Le code propre à Fabi (dossiers integration/, scripts/, branding/, docs/,
