@@ -8,17 +8,16 @@
 #   $env:FABI_VERSION       version to install (default: latest)
 #   $env:FABI_INSTALL       Windows shim directory (default: $env:LOCALAPPDATA\fabi)
 #   $env:FABI_REPO          source repo override (default: Noagiannone03/fabi)
-#   $env:FABI_ACCEL         force accelerator (cuda / cpu)
+#   $env:FABI_ACCEL         force accelerator (cuda / directml; cpu in WSL)
 #   $env:FABI_WINDOWS_MODE  native (default, no WSL) or wsl (legacy)
 #   $env:FABI_WSL_DISTRO    optional WSL distro name (only when FABI_WINDOWS_MODE=wsl)
 #   $env:FABI_TARBALL_PATH  optional local release tarball to install instead of downloading
 #   $env:FABI_ZSTD_PATH     optional local decompressor plus .sha256 sidecar
 #   $env:FABI_NO_PATH       "1" to leave the user PATH unchanged
 #
-# Windows runs Fabi NATIVELY (no WSL): the GPU engine uses the native-Windows vLLM
-# wheel (SystemPanic, cu124) + mlx-free Parallax, bundled in the windows-x64-cuda
-# release asset. Set FABI_WINDOWS_MODE=wsl only for the legacy path (running the
-# Linux runtime inside WSL).
+# Windows runs Fabi NATIVELY (no WSL). NVIDIA uses the qualified vLLM-Windows
+# runtime; Intel/AMD/Qualcomm GPUs use the official ONNX Runtime DirectML wheel.
+# Set FABI_WINDOWS_MODE=wsl only for the legacy Linux path.
 
 $ErrorActionPreference = "Stop"
 
@@ -247,9 +246,15 @@ function Test-NvidiaGpu {
 }
 
 function Get-Accel {
-    if ($env:FABI_ACCEL) { return $env:FABI_ACCEL }
+    if ($env:FABI_ACCEL) {
+        $forced = $env:FABI_ACCEL.Trim().ToLowerInvariant()
+        if ($forced -notin @("cuda", "directml", "cpu")) {
+            throw "FABI_ACCEL invalide pour Windows : $forced (attendu: cuda, directml ou cpu en WSL)"
+        }
+        return $forced
+    }
     if (Test-NvidiaGpu) { return "cuda" }
-    return "cpu"
+    return "directml"
 }
 
 function Assert-InstallRootIdle {
@@ -448,9 +453,17 @@ function Install-NativeFabi {
         [string]$InstallRoot
     )
 
+    if ($Accel -eq "cpu") {
+        Write-Err "Le runtime CPU Windows natif n'est pas publie; utilise DirectML ou FABI_WINDOWS_MODE=wsl"
+        exit 1
+    }
+
     $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
         "AMD64" { "x64" }
-        "ARM64" { "arm64" }
+        "ARM64" {
+            Write-Err "Windows ARM64 n'est pas encore qualifie pour le runtime Python DirectML Fabi"
+            exit 1
+        }
         default {
             Write-Err "Architecture non supportee : $($env:PROCESSOR_ARCHITECTURE)"
             exit 1
@@ -653,7 +666,8 @@ Write-Log "Mode Windows: $mode"
 
 switch ($mode) {
     "wsl" {
-        Install-WslFabi -Repo $repo -Version $version -Accel $accel -InstallRoot $installRoot
+        $wslAccel = if ($accel -eq "directml") { "cpu" } else { $accel }
+        Install-WslFabi -Repo $repo -Version $version -Accel $wslAccel -InstallRoot $installRoot
     }
     "native" {
         Install-NativeFabi -Repo $repo -Version $version -Accel $accel -InstallRoot $installRoot

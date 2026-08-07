@@ -42,7 +42,7 @@ function Invoke-FixtureInstall {
     $env:FABI_VERSION = "test"
     $env:FABI_TARBALL_PATH = $Archive
     $env:FABI_INSTALL = $installRoot
-    $env:FABI_ACCEL = "cpu"
+    $env:FABI_ACCEL = "directml"
     $env:FABI_WINDOWS_MODE = "native"
     $env:FABI_ZSTD_PATH = $zstdHelper
     $env:FABI_NO_PATH = "1"
@@ -151,13 +151,14 @@ public static class FixtureProgram {
             throw "upgrade with a locked stale rollback failed with exit code $cleanupInstallExitCode"
         }
         $cleanupDiagnosticText = $cleanupDiagnostics | Out-String
+        $compactCleanupDiagnostics = $cleanupDiagnosticText -replace "\s", ""
         # Windows peut développer le segment TEMP 8.3 (RUNNER~1) vers son nom
         # long (runneradmin) dans le processus enfant. Vérifier l'identité
         # stable de la cible et du fichier verrouillé, pas cette représentation
-        # de chemin propre à la machine.
+        # de chemin propre à la machine ni le wrapping du terminal hôte.
         if (
-            $cleanupDiagnosticText -notmatch [regex]::Escape((Split-Path -Leaf $lockedBackup)) -or
-            $cleanupDiagnosticText -notmatch [regex]::Escape((Split-Path -Leaf $lockedFile))
+            $compactCleanupDiagnostics -notmatch [regex]::Escape((Split-Path -Leaf $lockedBackup)) -or
+            $compactCleanupDiagnostics -notmatch [regex]::Escape((Split-Path -Leaf $lockedFile))
         ) {
             throw "locked rollback warning did not preserve its target and cause. Diagnostics: $cleanupDiagnosticText"
         }

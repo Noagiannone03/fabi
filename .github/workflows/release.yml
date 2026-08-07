@@ -124,6 +124,15 @@ jobs:
             pbs_arch: x86_64-pc-windows-msvc
             accel: cuda
 
+          # Windows x64 Intel/AMD/Qualcomm — DirectX 12 via le wheel officiel
+          # ONNX Runtime DirectML. Le moteur relie l'EP à l'adaptateur DXGI et
+          # refuse READY si le provider ou le budget live ne sont pas qualifiés.
+          - tag: windows-x64-directml
+            os: windows-latest
+            bun_target: bun-windows-x64
+            pbs_arch: x86_64-pc-windows-msvc
+            accel: directml
+
     runs-on: ${{ matrix.platform.os }}
     steps:
       - name: Checkout meta-projet

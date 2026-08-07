@@ -237,14 +237,14 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     rocm)
       EXTRA_PIP_ARGS=(--extra-index-url "https://download.pytorch.org/whl/rocm6.0")
       ;;
-    cpu|mlx)
+    cpu|mlx|directml)
       EXTRA_PIP_ARGS=(--extra-index-url "https://download.pytorch.org/whl/cpu")
       ;;
   esac
 
   PARALLAX_SPEC="${PARALLAX_SOURCE:-$PARALLAX_BUNDLE_DIR}"
 
-  if [[ "$PBS_ARCH" == *windows* ]]; then
+  if [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "cuda" ]]; then
     # --- Windows natif (NVIDIA) : wheel vLLM-Windows + Parallax CORE (sans mlx) ---
     # mlx n'a AUCUN build Windows. Le chemin vLLM de Parallax est désormais mlx-free
     # (cf. swarm-engine, branche production, commit "decouple ... from mlx") : on
@@ -295,6 +295,26 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     fi
     "$VENV_PIP" install --quiet requests
     ok  "Parallax (core, mlx-free) + vLLM natif Windows installés"
+  elif [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "directml" ]]; then
+    # Official ORT distributions all expose the same `onnxruntime` module and
+    # must never coexist. The portable asset deliberately contains only the
+    # DirectML build qualified by the engine; CUDA remains a separate tarball.
+    if [ -d "$PARALLAX_SPEC" ]; then
+      "$VENV_PIP" install -e "$PARALLAX_SPEC"
+    else
+      "$VENV_PIP" install "$PARALLAX_SPEC"
+    fi
+    "$VENV_PY" -m pip uninstall -y \
+      onnxruntime onnxruntime-gpu onnxruntime-qnn \
+      onnxruntime-genai onnxruntime-genai-cuda onnxruntime-genai-directml \
+      >/dev/null 2>&1 || true
+    "$VENV_PIP" install --quiet "onnxruntime-directml==1.24.4" requests
+    "$VENV_PY" -c \
+      'import onnxruntime as ort; assert "DmlExecutionProvider" in ort.get_available_providers(), ort.get_available_providers()'
+    ok "Parallax portable + ONNX Runtime DirectML officiel installés"
+  elif [[ "$PBS_ARCH" == *windows* ]]; then
+    err "Accélérateur Windows non supporté pour le packaging : $ACCEL"
+    exit 1
   else
     PARALLAX_EXTRA="${PARALLAX_EXTRA:-}"
     if [ -z "$PARALLAX_EXTRA" ]; then
@@ -416,7 +436,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     exit 1
   fi
 
-  if [[ "$PBS_ARCH" == *windows* ]]; then
+  if [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "cuda" ]]; then
     # Exercise the exact import chain used when the CUDA executor subprocess
     # starts.  This is intentionally hardware-free so GitHub's Windows builder
     # catches an incomplete runtime before publishing a multi-gigabyte asset.
@@ -424,6 +444,11 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
       'import llguidance, xgrammar; from vllm.sampling_params import SamplingParams; from vllm.v1.request import Request; from parallax.server.executor.vllm_executor import VLLMExecutor; from parallax.vllm.request_compat import create_vllm_request; params = SamplingParams(max_tokens=1); request = create_vllm_request(Request, sampling_params=params, eos_token_id=1, request_id="fabi-release-smoke", prompt_token_ids=[1], pooling_params=None); assert request.sampling_params.eos_token_id == 1'
     "$VENV_PY" -m pip check
     ok "Imports et dépendances du runtime vLLM Windows vérifiés"
+  elif [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "directml" ]]; then
+    "$VENV_PY" -c \
+      'from importlib.metadata import distributions; variants = sorted({dist.metadata["Name"].lower() for dist in distributions() if dist.metadata.get("Name", "").lower() in {"onnxruntime", "onnxruntime-gpu", "onnxruntime-qnn", "onnxruntime-directml"}}); assert variants == ["onnxruntime-directml"], variants; from parallax.server.executor.onnx_executor import OnnxExecutor; from parallax.server.runtime_capacity import run_runtime_capacity_probe'
+    "$VENV_PY" -m pip check
+    ok "Imports et distribution ONNX Runtime DirectML unique vérifiés"
   fi
 
   # 3.5 Neutralisation des paths absolus dans le venv
