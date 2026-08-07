@@ -44,6 +44,7 @@ jobs:
         run: |
           chmod +x scripts/test-install-upgrade.sh
           bash -n install.sh scripts/release-build.sh scripts/test-install-upgrade.sh
+          python3 scripts/test-bundle-skippy-native-runtime.py
           scripts/test-install-upgrade.sh
 
       - name: Parse and test Windows upgrade transaction
@@ -100,33 +101,26 @@ jobs:
             pbs_arch: aarch64-unknown-linux-gnu
             accel: cpu
 
-          # macOS Apple Silicon (M1+) avec MLX (le bon use case pour Mac)
+          # macOS Apple Silicon (M1+) : archive historique "mlx", moteur de
+          # couches communautaire Skippy/Metal v3 à l'intérieur.
           - tag: darwin-arm64-mlx
             os: macos-14
             bun_target: bun-darwin-arm64
             pbs_arch: aarch64-apple-darwin
             accel: mlx
 
-          # macOS Intel (avant 2020, en voie d'extinction mais encore utilisé)
-          - tag: darwin-x64-cpu
-            os: macos-15-intel
-            bun_target: bun-darwin-x64
-            pbs_arch: x86_64-apple-darwin
-            accel: cpu
-
-          # Windows x64 NVIDIA — NATIF, sans WSL. Parallax y contribue via le wheel
-          # vLLM-Windows (SystemPanic, cu124 / cp312) + Parallax core "mlx-free".
-          # Validé bout-en-bout sur GPU : un worker mlx-absent a chargé Qwen3-1.7B et
-          # servi dans le vrai swarm (cf. branche swarm-engine production).
+          # Windows x64 NVIDIA — NATIF, sans WSL. Skippy CUDA 12 est le moteur
+          # générique de couches ; aucun wheel vLLM tiers n'est requis.
           - tag: windows-x64-cuda
             os: windows-latest
             bun_target: bun-windows-x64
             pbs_arch: x86_64-pc-windows-msvc
             accel: cuda
 
-          # Windows x64 Intel/AMD/Qualcomm — DirectX 12 via le wheel officiel
-          # ONNX Runtime DirectML. Le moteur relie l'EP à l'adaptateur DXGI et
-          # refuse READY si le provider ou le budget live ne sont pas qualifiés.
+          # Windows x64 Intel/AMD — on conserve le nom d'asset directml pour la
+          # compatibilité de l'installeur, mais le moteur V3 embarqué est Skippy
+          # Vulkan. Il exécute les mêmes paquets de couches GGUF que CUDA/Metal,
+          # sans graphe ONNX à fabriquer modèle par modèle.
           - tag: windows-x64-directml
             os: windows-latest
             bun_target: bun-windows-x64

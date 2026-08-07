@@ -74,6 +74,12 @@ PYTHON_VERSION="3.12.7"
 VLLM_RS_REF="${VLLM_RS_REF:-ee0da84ab9e04ac7610e28580af62c365e898389}"
 VLLM_MINIJINJA_VERSION="${VLLM_MINIJINJA_VERSION:-2.20.0}"
 NATIVE_NETWORK_VERSION="not-bundled"
+EXECUTION_ENGINE="${FABI_EXECUTION_ENGINE:-skippy}"
+SKIPPY_MESH_RELEASE="not-bundled"
+SKIPPY_RUNTIME_ABI="not-bundled"
+SKIPPY_RUNTIME_BACKEND="not-bundled"
+SKIPPY_EXECUTION_DEVICE="not-bundled"
+SKIPPY_RUNTIME_ID="not-bundled"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -244,7 +250,18 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
 
   PARALLAX_SPEC="${PARALLAX_SOURCE:-$PARALLAX_BUNDLE_DIR}"
 
-  if [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "cuda" ]]; then
+  if [[ "$EXECUTION_ENGINE" == "skippy" ]]; then
+    # The portable community worker uses Mesh/Skippy's native llama.cpp stage
+    # runtime. No PyTorch/vLLM/MLX/ONNX model engine is needed in this archive;
+    # the narrow PyO3 bridge and the platform runtime are bundled below.
+    if [ -d "$PARALLAX_SPEC" ]; then
+      "$VENV_PIP" install -e "$PARALLAX_SPEC"
+    else
+      "$VENV_PIP" install "$PARALLAX_SPEC"
+    fi
+    "$VENV_PIP" install --quiet requests
+    ok "Parallax V3 + dépendances de contrôle Skippy installés"
+  elif [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "cuda" ]]; then
     # --- Windows natif (NVIDIA) : wheel vLLM-Windows + Parallax CORE (sans mlx) ---
     # mlx n'a AUCUN build Windows. Le chemin vLLM de Parallax est désormais mlx-free
     # (cf. swarm-engine, branche production, commit "decouple ... from mlx") : on
@@ -381,13 +398,43 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
   fi
   "$VENV_PY" -m pip install --quiet --no-deps "$NATIVE_WHEEL_PATH"
   "$VENV_PY" -c \
-    'import fabi_network_native as native; assert callable(native.create_relay_enrollment_proof); assert hasattr(native, "NetworkNode")'
+    'import fabi_network_native as native; assert callable(native.create_relay_enrollment_proof); assert hasattr(native, "NetworkNode"); assert hasattr(native, "SkippyStage"); assert callable(native.load_skippy_native_runtime)'
   NATIVE_NETWORK_VERSION="$(
     "$VENV_PY" -c \
       'from importlib.metadata import version; print(version("fabi-network-native"))'
   )"
   rm -rf "$NATIVE_WHEEL_DIR"
   ok "Transport Iroh/libp2p natif $NATIVE_NETWORK_VERSION compilé, installé et importé"
+
+  # Mesh publishes one generic Skippy native engine per platform/backend. The
+  # Fabi lock pins the audited release and archive SHA-256; the helper also
+  # validates the inner ABI/target/backend contract, extracts safely, and emits
+  # a per-file integrity manifest consumed by the Rust loader at every start.
+  if [[ "$EXECUTION_ENGINE" == "skippy" ]]; then
+    log "(3.35/4) Installation du runtime natif Skippy immuable…"
+    SKIPPY_BUNDLE_ROOT="$PKG_DIR/runtime/native-runtimes"
+    "$VENV_PY" "$ROOT/scripts/bundle-skippy-native-runtime.py" \
+      --target "$PBS_ARCH" \
+      --accelerator "$ACCEL" \
+      --out "$SKIPPY_BUNDLE_ROOT"
+    SKIPPY_INTEGRITY="$(find "$SKIPPY_BUNDLE_ROOT" -type f -name fabi-integrity.json -print -quit)"
+    if [ -z "$SKIPPY_INTEGRITY" ]; then
+      err "Le runtime Skippy n'a produit aucun manifeste d'intégrité Fabi"
+      exit 1
+    fi
+    SKIPPY_MESH_RELEASE="$("$VENV_PY" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["mesh_release"])' "$SKIPPY_INTEGRITY")"
+    SKIPPY_RUNTIME_ABI="$("$VENV_PY" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["skippy_abi"])' "$SKIPPY_INTEGRITY")"
+    SKIPPY_RUNTIME_BACKEND="$("$VENV_PY" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["backend"])' "$SKIPPY_INTEGRITY")"
+    SKIPPY_EXECUTION_DEVICE="$("$VENV_PY" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["execution_device"])' "$SKIPPY_INTEGRITY")"
+    SKIPPY_RUNTIME_ID="$("$VENV_PY" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["runtime_id"])' "$SKIPPY_INTEGRITY")"
+    FABI_SKIPPY_NATIVE_RUNTIME_DIR="$(dirname "$SKIPPY_INTEGRITY")" \
+      SKIPPY_MESH_RELEASE="$SKIPPY_MESH_RELEASE" \
+      SKIPPY_RUNTIME_ABI="$SKIPPY_RUNTIME_ABI" \
+      SKIPPY_RUNTIME_BACKEND="$SKIPPY_RUNTIME_BACKEND" \
+      "$VENV_PY" -c \
+      'from parallax.server.skippy_stage_runner import discover_skippy_native_runtime; import os; path = discover_skippy_native_runtime(mesh_release=os.environ["SKIPPY_MESH_RELEASE"], runtime_abi=os.environ["SKIPPY_RUNTIME_ABI"], backend=os.environ["SKIPPY_RUNTIME_BACKEND"]); assert path.is_dir()'
+    ok "Runtime Skippy $SKIPPY_RUNTIME_ID ($SKIPPY_RUNTIME_BACKEND, ABI $SKIPPY_RUNTIME_ABI) authentifié"
+  fi
 
   # Le frontend HTTP officiel n'est pas un paquet Python : Parallax le compile
   # séparément depuis les sources Rust de vLLM. Le patch Fabi conserve
@@ -436,7 +483,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
     exit 1
   fi
 
-  if [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "cuda" ]]; then
+  if [[ "$EXECUTION_ENGINE" != "skippy" && "$PBS_ARCH" == *windows* && "$ACCEL" == "cuda" ]]; then
     # Exercise the exact import chain used when the CUDA executor subprocess
     # starts.  This is intentionally hardware-free so GitHub's Windows builder
     # catches an incomplete runtime before publishing a multi-gigabyte asset.
@@ -444,7 +491,7 @@ if [ -z "${FABI_SKIP_PARALLAX:-}" ]; then
       'import llguidance, xgrammar; from vllm.sampling_params import SamplingParams; from vllm.v1.request import Request; from parallax.server.executor.vllm_executor import VLLMExecutor; from parallax.vllm.request_compat import create_vllm_request; params = SamplingParams(max_tokens=1); request = create_vllm_request(Request, sampling_params=params, eos_token_id=1, request_id="fabi-release-smoke", prompt_token_ids=[1], pooling_params=None); assert request.sampling_params.eos_token_id == 1'
     "$VENV_PY" -m pip check
     ok "Imports et dépendances du runtime vLLM Windows vérifiés"
-  elif [[ "$PBS_ARCH" == *windows* && "$ACCEL" == "directml" ]]; then
+  elif [[ "$EXECUTION_ENGINE" != "skippy" && "$PBS_ARCH" == *windows* && "$ACCEL" == "directml" ]]; then
     "$VENV_PY" -c \
       'from importlib.metadata import distributions; variants = sorted({dist.metadata["Name"].lower() for dist in distributions() if dist.metadata.get("Name", "").lower() in {"onnxruntime", "onnxruntime-gpu", "onnxruntime-qnn", "onnxruntime-directml"}}); assert variants == ["onnxruntime-directml"], variants; from parallax.server.executor.onnx_executor import OnnxExecutor; from parallax.server.runtime_capacity import run_runtime_capacity_probe'
     "$VENV_PY" -m pip check
@@ -514,6 +561,12 @@ python=$PYTHON_VERSION
 opencode_revision=$(git -C "$FABI_CLI_DIR" rev-parse HEAD)
 parallax_revision=$(git -C "$SWARM_ENGINE_DIR" rev-parse HEAD)
 native_network_version=$NATIVE_NETWORK_VERSION
+execution_engine=$EXECUTION_ENGINE
+execution_device=$SKIPPY_EXECUTION_DEVICE
+skippy_mesh_release=$SKIPPY_MESH_RELEASE
+skippy_runtime_abi=$SKIPPY_RUNTIME_ABI
+skippy_runtime_backend=$SKIPPY_RUNTIME_BACKEND
+skippy_runtime_id=$SKIPPY_RUNTIME_ID
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 cat > "$PKG_DIR/.fabi-managed-paths" <<'EOF'

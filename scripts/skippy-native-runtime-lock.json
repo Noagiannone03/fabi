@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "source": "https://github.com/Mesh-LLM/mesh-llm",
+  "license": "Apache-2.0",
+  "mesh_release": "0.74.0",
+  "mesh_revision": "e60b2fe43aa05271569fbeff2a457133aef456a1",
+  "skippy_abi": "0.1.32",
+  "artifacts": {
+    "aarch64-apple-darwin:mlx": {
+      "asset": "meshllm-native-runtime-darwin-aarch64-metal.tar.gz",
+      "runtime_id": "meshllm-native-runtime-darwin-aarch64-metal",
+      "backend": "metal",
+      "execution_device": "metal",
+      "sha256": "af219e6aaea98e4d7c0108b4881087828f62827c0d4e239925c133fcd8335d52"
+    },
+    "aarch64-unknown-linux-gnu:cpu": {
+      "asset": "meshllm-native-runtime-linux-aarch64-cpu.tar.gz",
+      "runtime_id": "meshllm-native-runtime-linux-aarch64-cpu",
+      "backend": "cpu",
+      "execution_device": "cpu",
+      "sha256": "95315bc358ee90338dd40ba2c9c225b69dc654ab034b16c6d5e8d049e43edbb9"
+    },
+    "x86_64-unknown-linux-gnu:cpu": {
+      "asset": "meshllm-native-runtime-linux-x86_64-cpu.tar.gz",
+      "runtime_id": "meshllm-native-runtime-linux-x86_64-cpu",
+      "backend": "cpu",
+      "execution_device": "cpu",
+      "sha256": "39c2e8b4fa958800fed8ad4d32bdf5c486e9ab937346ee153fbd67342afc283c"
+    },
+    "x86_64-unknown-linux-gnu:cuda": {
+      "asset": "meshllm-native-runtime-linux-x86_64-cuda12.tar.gz",
+      "runtime_id": "meshllm-native-runtime-linux-x86_64-cuda12",
+      "backend": "cuda",
+      "execution_device": "cuda",
+      "sha256": "b97aef0a582869692fef648d5c1e55bd5a177aff1d0bf11925ed18650b55946c"
+    },
+    "x86_64-unknown-linux-gnu:rocm": {
+      "asset": "meshllm-native-runtime-linux-x86_64-rocm.tar.gz",
+      "runtime_id": "meshllm-native-runtime-linux-x86_64-rocm",
+      "backend": "rocm",
+      "execution_device": "rocm",
+      "sha256": "adc922c34c1ff3461c2494589e0f15c95dbe98fa5323f5e5a6e521398dde7b49"
+    },
+    "x86_64-unknown-linux-gnu:vulkan": {
+      "asset": "meshllm-native-runtime-linux-x86_64-vulkan.tar.gz",
+      "runtime_id": "meshllm-native-runtime-linux-x86_64-vulkan",
+      "backend": "vulkan",
+      "execution_device": "vulkan",
+      "sha256": "51497bde416fd0ceace7061bcf0f030442fb01f7fb60c82ed485ec3db7dfa1a4"
+    },
+    "x86_64-pc-windows-msvc:cpu": {
+      "asset": "meshllm-native-runtime-windows-x86_64-cpu.tar.gz",
+      "runtime_id": "meshllm-native-runtime-windows-x86_64-cpu",
+      "backend": "cpu",
+      "execution_device": "cpu",
+      "sha256": "e83f054d836ac75a6ceb0298d72672fb07052fce806cd201727d02981b4b939b"
+    },
+    "x86_64-pc-windows-msvc:cuda": {
+      "asset": "meshllm-native-runtime-windows-x86_64-cuda12.tar.gz",
+      "runtime_id": "meshllm-native-runtime-windows-x86_64-cuda12",
+      "backend": "cuda",
+      "execution_device": "cuda",
+      "sha256": "a1c55db0d216f999a3fcc18b45652eb9630b2f0fcfc004c6e7e881b957851daf"
+    },
+    "x86_64-pc-windows-msvc:rocm": {
+      "asset": "meshllm-native-runtime-windows-x86_64-rocm.tar.gz",
+      "runtime_id": "meshllm-native-runtime-windows-x86_64-rocm",
+      "backend": "rocm",
+      "execution_device": "rocm",
+      "sha256": "b599faf77758a9bbf575e2ba0e817dd661426f7003a89ce379fab338fdaf04e5"
+    },
+    "x86_64-pc-windows-msvc:directml": {
+      "asset": "meshllm-native-runtime-windows-x86_64-vulkan.tar.gz",
+      "runtime_id": "meshllm-native-runtime-windows-x86_64-vulkan",
+      "backend": "vulkan",
+      "execution_device": "vulkan",
+      "sha256": "7fd3561550c34ed674d00698595304e46f725c065837a6dcc81bd68c708da802"
+    },
+    "x86_64-pc-windows-msvc:vulkan": {
+      "asset": "meshllm-native-runtime-windows-x86_64-vulkan.tar.gz",
+      "runtime_id": "meshllm-native-runtime-windows-x86_64-vulkan",
+      "backend": "vulkan",
+      "execution_device": "vulkan",
+      "sha256": "7fd3561550c34ed674d00698595304e46f725c065837a6dcc81bd68c708da802"
+    }
+  }
+}
