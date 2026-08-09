@@ -114,13 +114,13 @@ function Remove-StaleRuntimeBackups {
 function Save-UrlFile {
     param(
         [Parameter(Mandatory = $true)][string]$Uri,
-        [Parameter(Mandatory = $true)][string]$OutFile
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [ValidateRange(1, 10)][int]$MaxAttempts = 6
     )
 
     $curl = Get-Command "curl.exe" -ErrorAction SilentlyContinue
     if ($curl) {
-        $attempts = 6
-        for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+        for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
             $args = @(
                 "--fail",
                 "--location",
@@ -140,28 +140,27 @@ function Save-UrlFile {
                 return
             }
 
-            if ($attempt -eq $attempts) {
+            if ($attempt -eq $MaxAttempts) {
                 throw "curl.exe failed with exit code $LASTEXITCODE while downloading $Uri"
             }
 
-            Write-Warn "Telechargement interrompu, nouvelle tentative $($attempt + 1)/$attempts : $Uri"
+            Write-Warn "Telechargement interrompu, nouvelle tentative $($attempt + 1)/$MaxAttempts : $Uri"
             Start-Sleep -Seconds ([Math]::Min(30, 2 * $attempt))
         }
     }
 
-    $attempts = 6
-    for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         try {
             # Boucle explicite pour rester compatible avec Windows PowerShell
             # 5.1, qui ne possède pas encore MaximumRetryCount.
             Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
             return
         } catch {
-            if ($attempt -eq $attempts) {
+            if ($attempt -eq $MaxAttempts) {
                 throw
             }
             Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
-            Write-Warn "Telechargement interrompu, nouvelle tentative $($attempt + 1)/$attempts : $Uri"
+            Write-Warn "Telechargement interrompu, nouvelle tentative $($attempt + 1)/$MaxAttempts : $Uri"
             Start-Sleep -Seconds ([Math]::Min(30, 2 * $attempt))
         }
     }
@@ -519,7 +518,14 @@ function Install-NativeFabi {
         } else {
             $partsTxt = Join-Path $tmpDir "parts.txt"
             $isSplit = $true
-            try { Save-UrlFile -Uri "$tarballUrl.parts" -OutFile $partsTxt } catch { $isSplit = $false }
+            # The optional split manifest is a capability probe, not a payload:
+            # a deterministic 404 must fall back immediately to the direct
+            # archive instead of spending the full transient-download budget.
+            try {
+                Save-UrlFile -Uri "$tarballUrl.parts" -OutFile $partsTxt -MaxAttempts 1
+            } catch {
+                $isSplit = $false
+            }
             if ($isSplit) {
                 Write-Log "Asset volumineux -> telechargement en parties + reassemblage..."
                 $out = [System.IO.File]::Open($tarballPath, [System.IO.FileMode]::Create)
