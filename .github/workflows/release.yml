@@ -71,9 +71,31 @@ jobs:
           scripts/build-zstd-decompressor.sh windows-x64-cuda
           test -x dist/fabi-unzstd-windows-x64-cuda.exe
 
+  runtime-lock-check:
+    name: Runtime lock coherence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout meta-projet
+        uses: actions/checkout@v4
+
+      - name: Clone des forks verrouillés
+        env:
+          OPENCODE_FORK_REMOTE: ${{ vars.OPENCODE_FORK_REMOTE || 'https://github.com/Noagiannone03/fabi-cli.git' }}
+          PARALLAX_FORK_REMOTE: ${{ vars.PARALLAX_FORK_REMOTE || 'https://github.com/Noagiannone03/swarm-engine.git' }}
+          OPENCODE_UPSTREAM: https://github.com/sst/opencode.git
+          PARALLAX_UPSTREAM: https://github.com/GradientHQ/parallax.git
+        run: |
+          set -a
+          source runtime-lock.env
+          set +a
+          chmod +x scripts/setup.sh scripts/verify-runtime-lock.sh
+          ./scripts/setup.sh
+          ./scripts/verify-runtime-lock.sh
+        shell: bash
+
   build:
     name: Build ${{ matrix.platform.tag }}
-    needs: installer-check
+    needs: [installer-check, runtime-lock-check]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     strategy:
       # On ne fail pas tout si une plateforme casse — on récupère les autres
