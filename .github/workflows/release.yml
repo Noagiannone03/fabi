@@ -33,7 +33,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup zstd (Linux)
         if: runner.os == 'Linux'
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout meta-projet
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Clone des forks verrouillés
         env:
@@ -152,7 +152,7 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
     steps:
       - name: Checkout meta-projet
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -218,7 +218,7 @@ jobs:
       # installer dans un slot candidat sans publier ni modifier un tag.
       - name: Upload artifact (qualification manuelle ou debug)
         if: failure() || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.platform.tag }}
           path: dist/
@@ -255,7 +255,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Attacher install.sh / install.ps1 / install.cmd à la release
         uses: softprops/action-gh-release@v2
