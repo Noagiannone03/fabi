@@ -26,8 +26,8 @@ class BundleSkippyRuntimeTests(unittest.TestCase):
         manifest = {
             "runtime": {
                 "id": "fixture-runtime",
-                "mesh_version": "0.74.0",
-                "skippy_abi": "0.1.32",
+                "mesh_version": "0.75.1",
+                "skippy_abi": "0.1.35",
                 "platform": {"target": "fixture-target"},
                 "backend": {"kind": "vulkan"},
                 "libraries": ["../escape.dll" if unsafe else "lib/runtime.dll"],
@@ -47,9 +47,9 @@ class BundleSkippyRuntimeTests(unittest.TestCase):
             json.dumps(
                 {
                     "schema_version": 1,
-                    "mesh_release": "0.74.0",
+                    "mesh_release": "0.75.1",
                     "mesh_revision": "stable-revision",
-                    "skippy_abi": "0.1.32",
+                    "skippy_abi": "0.1.35",
                     "artifacts": {
                         "fixture-target:directml": {
                             "asset": archive.name,

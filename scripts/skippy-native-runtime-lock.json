@@ -2,86 +2,86 @@
   "schema_version": 1,
   "source": "https://github.com/Mesh-LLM/mesh-llm",
   "license": "Apache-2.0",
-  "mesh_release": "0.74.0",
-  "mesh_revision": "e60b2fe43aa05271569fbeff2a457133aef456a1",
-  "skippy_abi": "0.1.32",
+  "mesh_release": "0.75.1",
+  "mesh_revision": "3295c902d4c4f859aaadf9240042ffdaf06dd07e",
+  "skippy_abi": "0.1.35",
   "artifacts": {
     "aarch64-apple-darwin:mlx": {
       "asset": "meshllm-native-runtime-darwin-aarch64-metal.tar.gz",
       "runtime_id": "meshllm-native-runtime-darwin-aarch64-metal",
       "backend": "metal",
       "execution_device": "metal",
-      "sha256": "af219e6aaea98e4d7c0108b4881087828f62827c0d4e239925c133fcd8335d52"
+      "sha256": "8ac9cb6d38c369c5efdee1aba19b1e3288c83d0d35dfc2b80627eb7ca3b1d021"
     },
     "aarch64-unknown-linux-gnu:cpu": {
       "asset": "meshllm-native-runtime-linux-aarch64-cpu.tar.gz",
       "runtime_id": "meshllm-native-runtime-linux-aarch64-cpu",
       "backend": "cpu",
       "execution_device": "cpu",
-      "sha256": "95315bc358ee90338dd40ba2c9c225b69dc654ab034b16c6d5e8d049e43edbb9"
+      "sha256": "f95b31cd923290432c9ca673acc7902cac2836f4ce55f7b88120952e7c2f5d46"
     },
     "x86_64-unknown-linux-gnu:cpu": {
       "asset": "meshllm-native-runtime-linux-x86_64-cpu.tar.gz",
       "runtime_id": "meshllm-native-runtime-linux-x86_64-cpu",
       "backend": "cpu",
       "execution_device": "cpu",
-      "sha256": "39c2e8b4fa958800fed8ad4d32bdf5c486e9ab937346ee153fbd67342afc283c"
+      "sha256": "db39d5d70101f771d8ec11a985555fd185296ec1653416811a29eda876671762"
     },
     "x86_64-unknown-linux-gnu:cuda": {
       "asset": "meshllm-native-runtime-linux-x86_64-cuda12.tar.gz",
       "runtime_id": "meshllm-native-runtime-linux-x86_64-cuda12",
       "backend": "cuda",
       "execution_device": "cuda",
-      "sha256": "b97aef0a582869692fef648d5c1e55bd5a177aff1d0bf11925ed18650b55946c"
+      "sha256": "bede1049a50f7a98a5212bc615ea4fafd607624fa90cbdf554418d1ff325f6fb"
     },
     "x86_64-unknown-linux-gnu:rocm": {
       "asset": "meshllm-native-runtime-linux-x86_64-rocm.tar.gz",
       "runtime_id": "meshllm-native-runtime-linux-x86_64-rocm",
       "backend": "rocm",
       "execution_device": "rocm",
-      "sha256": "adc922c34c1ff3461c2494589e0f15c95dbe98fa5323f5e5a6e521398dde7b49"
+      "sha256": "f9acbb7dd79fca2c2f864cf374bc762e65834a4579d6ee629857a0c75f8e15d2"
     },
     "x86_64-unknown-linux-gnu:vulkan": {
       "asset": "meshllm-native-runtime-linux-x86_64-vulkan.tar.gz",
       "runtime_id": "meshllm-native-runtime-linux-x86_64-vulkan",
       "backend": "vulkan",
       "execution_device": "vulkan",
-      "sha256": "51497bde416fd0ceace7061bcf0f030442fb01f7fb60c82ed485ec3db7dfa1a4"
+      "sha256": "417bb7426fb089fee4fbdacbfbcb3fab91162821461d456cf78b08fdad252983"
     },
     "x86_64-pc-windows-msvc:cpu": {
       "asset": "meshllm-native-runtime-windows-x86_64-cpu.tar.gz",
       "runtime_id": "meshllm-native-runtime-windows-x86_64-cpu",
       "backend": "cpu",
       "execution_device": "cpu",
-      "sha256": "e83f054d836ac75a6ceb0298d72672fb07052fce806cd201727d02981b4b939b"
+      "sha256": "e071018810311e227627bef418c58a659e5ea90e423778ebf157112dac172871"
     },
     "x86_64-pc-windows-msvc:cuda": {
       "asset": "meshllm-native-runtime-windows-x86_64-cuda12.tar.gz",
       "runtime_id": "meshllm-native-runtime-windows-x86_64-cuda12",
       "backend": "cuda",
       "execution_device": "cuda",
-      "sha256": "a1c55db0d216f999a3fcc18b45652eb9630b2f0fcfc004c6e7e881b957851daf"
+      "sha256": "bc5709e55376f921b011f16faba0e6be6149c5bf4dddde68ecf4d5241801f4de"
     },
     "x86_64-pc-windows-msvc:rocm": {
       "asset": "meshllm-native-runtime-windows-x86_64-rocm.tar.gz",
       "runtime_id": "meshllm-native-runtime-windows-x86_64-rocm",
       "backend": "rocm",
       "execution_device": "rocm",
-      "sha256": "b599faf77758a9bbf575e2ba0e817dd661426f7003a89ce379fab338fdaf04e5"
+      "sha256": "bd93f029afe87654a87c84fb73d686426ff043af1d51a472fd8562d9de5e3387"
     },
     "x86_64-pc-windows-msvc:directml": {
       "asset": "meshllm-native-runtime-windows-x86_64-vulkan.tar.gz",
       "runtime_id": "meshllm-native-runtime-windows-x86_64-vulkan",
       "backend": "vulkan",
       "execution_device": "vulkan",
-      "sha256": "7fd3561550c34ed674d00698595304e46f725c065837a6dcc81bd68c708da802"
+      "sha256": "d7ba91e084e20fe33b5130aa1c6a5a8b5785f662d1b9732964346f79a0084c81"
     },
     "x86_64-pc-windows-msvc:vulkan": {
       "asset": "meshllm-native-runtime-windows-x86_64-vulkan.tar.gz",
       "runtime_id": "meshllm-native-runtime-windows-x86_64-vulkan",
       "backend": "vulkan",
       "execution_device": "vulkan",
-      "sha256": "7fd3561550c34ed674d00698595304e46f725c065837a6dcc81bd68c708da802"
+      "sha256": "d7ba91e084e20fe33b5130aa1c6a5a8b5785f662d1b9732964346f79a0084c81"
     }
   }
 }
